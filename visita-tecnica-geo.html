@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GeoFoto – Visita Técnica</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;900&display=swap');
+
+  :root {
+    --ore: #c8860a;
+    --ore-light: #f0a820;
+    --steel: #1a2332;
+    --steel-mid: #243040;
+    --steel-light: #2e3d52;
+    --dust: #8fa3b8;
+    --chalk: #dce8f0;
+    --danger: #e63030;
+    --green: #22c55e;
+    --mono: 'Share Tech Mono', monospace;
+    --sans: 'Barlow Condensed', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--steel);
+    color: var(--chalk);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* HEADER */
+  header {
+    background: linear-gradient(135deg, #0d1620 0%, var(--steel-mid) 100%);
+    border-bottom: 2px solid var(--ore);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo-icon {
+    width: 40px; height: 40px;
+    background: var(--ore);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-size: 1.4rem;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    color: var(--chalk);
+    line-height: 1;
+  }
+  header h1 span { color: var(--ore-light); }
+  header p { font-size: 0.72rem; color: var(--dust); font-family: var(--mono); letter-spacing: 0.03em; }
+
+  /* GPS PANEL */
+  .gps-panel {
+    background: var(--steel-mid);
+    border: 1px solid var(--steel-light);
+    border-left: 3px solid var(--ore);
+    margin: 12px;
+    padding: 10px 14px;
+    border-radius: 4px;
+  }
+
+  .gps-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .gps-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--danger);
+    animation: pulse 1.5s infinite;
+    flex-shrink: 0;
+  }
+  .gps-dot.active { background: var(--green); animation: none; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .gps-status { font-family: var(--mono); font-size: 0.72rem; color: var(--dust); }
+
+  .coords-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .coord-box {
+    background: var(--steel);
+    border: 1px solid var(--steel-light);
+    border-radius: 3px;
+    padding: 6px 8px;
+  }
+  .coord-box label {
+    font-size: 0.6rem;
+    color: var(--ore);
+    font-family: var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .coord-box span {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--chalk);
+  }
+
+  .coord-box.full { grid-column: 1 / -1; }
+
+  /* TAG INPUT */
+  .tag-section {
+    margin: 0 12px 12px;
+  }
+  .tag-section label {
+    font-size: 0.68rem;
+    color: var(--ore);
+    font-family: var(--mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .tag-section input {
+    width: 100%;
+    background: var(--steel-mid);
+    border: 1px solid var(--steel-light);
+    border-radius: 4px;
+    padding: 9px 12px;
+    color: var(--chalk);
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .tag-section input:focus { border-color: var(--ore); }
+  .tag-section input::placeholder { color: var(--dust); opacity: 0.5; }
+
+  /* CAMERA */
+  .camera-section {
+    margin: 0 12px 12px;
+    position: relative;
+  }
+
+  #video-preview {
+    width: 100%;
+    border-radius: 6px;
+    border: 2px solid var(--steel-light);
+    display: block;
+    background: #000;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+  }
+
+  .viewfinder-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .corner {
+    position: absolute;
+    width: 22px; height: 22px;
+    border-color: var(--ore);
+    border-style: solid;
+    border-width: 0;
+  }
+  .corner.tl { top: 10px; left: 10px; border-top-width: 2px; border-left-width: 2px; }
+  .corner.tr { top: 10px; right: 10px; border-top-width: 2px; border-right-width: 2px; }
+  .corner.bl { bottom: 10px; left: 10px; border-bottom-width: 2px; border-left-width: 2px; }
+  .corner.br { bottom: 10px; right: 10px; border-bottom-width: 2px; border-right-width: 2px; }
+
+  .crosshair {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 30px; height: 30px;
+  }
+  .crosshair::before, .crosshair::after {
+    content: '';
+    position: absolute;
+    background: rgba(200,134,10,0.6);
+  }
+  .crosshair::before { width: 1px; height: 30px; left: 50%; top: 0; }
+  .crosshair::after  { width: 30px; height: 1px; top: 50%; left: 0; }
+
+  .live-stamp {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    background: rgba(10,18,28,0.78);
+    backdrop-filter: blur(4px);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--ore-light);
+    line-height: 1.6;
+    pointer-events: none;
+  }
+
+  /* BUTTONS */
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    margin: 0 12px 12px;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 5px;
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+
+  .btn-primary {
+    background: var(--ore);
+    color: #0d1620;
+    flex: 2;
+  }
+  .btn-primary:hover { background: var(--ore-light); }
+  .btn-primary:active { transform: scale(0.97); }
+
+  .btn-secondary {
+    background: var(--steel-light);
+    color: var(--chalk);
+    border: 1px solid var(--steel-light);
+  }
+  .btn-secondary:hover { background: #3a4f66; }
+
+  /* FILE INPUT */
+  .file-label {
+    display: block;
+    margin: 0 12px 4px;
+    background: var(--steel-mid);
+    border: 1px dashed var(--steel-light);
+    border-radius: 5px;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--dust);
+    transition: border-color 0.2s;
+  }
+  .file-label:hover { border-color: var(--ore); color: var(--ore-light); }
+  #file-input { display: none; }
+
+  /* GALLERY */
+  .gallery-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 14px 12px 8px;
+  }
+  .gallery-header h2 {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ore-light);
+  }
+  .gallery-header span {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    background: var(--ore);
+    color: #0d1620;
+    padding: 2px 7px;
+    border-radius: 2px;
+    font-weight: 700;
+  }
+
+  .gallery {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 0 12px 80px;
+  }
+
+  .photo-card {
+    background: var(--steel-mid);
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1px solid var(--steel-light);
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s;
+  }
+  .photo-card:hover { transform: scale(1.02); border-color: var(--ore); }
+
+  .photo-card img {
+    width: 100%;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+    display: block;
+  }
+
+  .photo-meta {
+    padding: 6px 8px;
+  }
+  .photo-meta .photo-tag {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--ore-light);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .photo-meta .photo-coords {
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    color: var(--dust);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+  .photo-meta .photo-time {
+    font-family: var(--mono);
+    font-size: 0.56rem;
+    color: var(--steel-light);
+    margin-top: 2px;
+    border-top: 1px solid var(--steel-light);
+    padding-top: 4px;
+  }
+
+  /* DOWNLOAD BAR */
+  .dl-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(0deg, var(--steel) 80%, transparent);
+    padding: 12px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-dl {
+    flex: 1;
+    padding: 11px;
+    border: none;
+    border-radius: 5px;
+    font-family: var(--sans);
+    font-weight: 700;
+    font-size: 0.82rem;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .btn-dl-all {
+    background: var(--steel-light);
+    color: var(--chalk);
+    border: 1px solid var(--ore);
+  }
+
+  .btn-dl-csv {
+    background: var(--steel-light);
+    color: var(--chalk);
+    border: 1px solid var(--dust);
+  }
+
+  .btn-dl-kml {
+    background: var(--ore);
+    color: #0d1620;
+  }
+
+  /* HIDDEN CANVAS */
+  #offscreen { display: none; }
+
+  /* TOAST */
+  .toast {
+    position: fixed;
+    top: 70px; left: 50%;
+    transform: translateX(-50%) translateY(-10px);
+    background: var(--green);
+    color: #0d1620;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    padding: 8px 18px;
+    border-radius: 4px;
+    font-weight: 700;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 999;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* EMPTY */
+  .empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 30px;
+    color: var(--dust);
+    font-size: 0.82rem;
+    font-family: var(--mono);
+    opacity: 0.5;
+  }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--steel-mid);
+    border: 1px solid var(--ore);
+    border-radius: 8px;
+    max-width: 420px;
+    width: 100%;
+    overflow: hidden;
+  }
+  .modal-box img { width: 100%; display: block; }
+  .modal-info { padding: 12px 14px; font-family: var(--mono); font-size: 0.72rem; line-height: 1.7; color: var(--dust); }
+  .modal-info strong { color: var(--ore-light); }
+  .modal-actions { display: flex; gap: 8px; padding: 0 14px 14px; }
+  .modal-actions .btn { font-size: 0.78rem; padding: 9px; }
+
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">⛏</div>
+  <div>
+    <h1>GEO<span>FOTO</span></h1>
+    <p>REGISTRO TÉCNICO DE CAMPO · VALE S.A.</p>
+  </div>
+</header>
+
+<!-- GPS Panel -->
+<div class="gps-panel">
+  <div class="gps-row">
+    <div class="gps-dot" id="gps-dot"></div>
+    <span class="gps-status" id="gps-status">Aguardando sinal GPS...</span>
+  </div>
+  <div class="coords-grid">
+    <div class="coord-box">
+      <label>LAT</label>
+      <span id="disp-lat">---.------</span>
+    </div>
+    <div class="coord-box">
+      <label>LON</label>
+      <span id="disp-lon">---.------</span>
+    </div>
+    <div class="coord-box">
+      <label>ALT (m)</label>
+      <span id="disp-alt">---</span>
+    </div>
+    <div class="coord-box">
+      <label>PRECISÃO (m)</label>
+      <span id="disp-acc">---</span>
+    </div>
+    <div class="coord-box full">
+      <label>UTM (SIRGAS 2000 – estimado)</label>
+      <span id="disp-utm">---</span>
+    </div>
+  </div>
+</div>
+
+<!-- Tag -->
+<div class="tag-section">
+  <label>Identificação / TAG do ponto</label>
+  <input type="text" id="tag-input" placeholder="Ex: PT-07 – Talude Norte – Bancada 3">
+</div>
+
+<!-- Camera -->
+<div class="camera-section">
+  <video id="video-preview" autoplay playsinline muted></video>
+  <div class="viewfinder-overlay">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+    <div class="crosshair"></div>
+    <div class="live-stamp" id="live-stamp">Aguardando GPS...</div>
+  </div>
+</div>
+
+<div class="btn-row">
+  <button class="btn btn-primary" id="btn-capture">📷 Capturar</button>
+  <button class="btn btn-secondary" id="btn-flip">🔄</button>
+</div>
+
+<!-- File import -->
+<label class="file-label" for="file-input">📂 Ou importar foto da galeria</label>
+<input type="file" id="file-input" accept="image/*" multiple>
+
+<!-- Gallery -->
+<div class="gallery-header">
+  <h2>Registros</h2>
+  <span id="count">0</span>
+</div>
+
+<div class="gallery" id="gallery">
+  <div class="empty" id="empty-msg">Nenhuma foto registrada ainda.</div>
+</div>
+
+<!-- Download bar -->
+<div class="dl-bar">
+  <button class="btn-dl btn-dl-all" id="btn-dl-all">⬇ Fotos</button>
+  <button class="btn-dl btn-dl-csv" id="btn-dl-csv">📋 CSV</button>
+  <button class="btn-dl btn-dl-kml" id="btn-dl-kml">🌍 KML</button>
+</div>
+
+<!-- Hidden canvas -->
+<canvas id="offscreen"></canvas>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <img id="modal-img" src="" alt="">
+    <div class="modal-info" id="modal-info"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="modal-dl">⬇ Baixar</button>
+      <button class="btn btn-secondary" id="modal-del">🗑 Excluir</button>
+      <button class="btn btn-secondary" id="modal-close">✕</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ─────────────────────────────────────────────────────────
+let gps = { lat: null, lon: null, alt: null, acc: null };
+let photos = [];
+let stream = null;
+let facingMode = 'environment';
+let selectedIndex = null;
+
+// ─── GPS ───────────────────────────────────────────────────────────
+function startGPS() {
+  if (!navigator.geolocation) {
+    document.getElementById('gps-status').textContent = 'GPS não suportado neste navegador.';
+    return;
+  }
+  navigator.geolocation.watchPosition(onGPS, onGPSError, {
+    enableHighAccuracy: true,
+    maximumAge: 3000,
+    timeout: 15000
+  });
+}
+
+function onGPS(pos) {
+  gps.lat = pos.coords.latitude;
+  gps.lon = pos.coords.longitude;
+  gps.alt = pos.coords.altitude ? pos.coords.altitude.toFixed(1) : '—';
+  gps.acc = pos.coords.accuracy ? pos.coords.accuracy.toFixed(1) : '—';
+
+  document.getElementById('gps-dot').classList.add('active');
+  document.getElementById('gps-status').textContent = 'GPS ativo';
+  document.getElementById('disp-lat').textContent = gps.lat.toFixed(6);
+  document.getElementById('disp-lon').textContent = gps.lon.toFixed(6);
+  document.getElementById('disp-alt').textContent = gps.alt;
+  document.getElementById('disp-acc').textContent = gps.acc;
+
+  const utm = latLonToUTM(gps.lat, gps.lon);
+  document.getElementById('disp-utm').textContent = `${utm.zone}${utm.hem} E:${utm.easting} N:${utm.northing}`;
+  updateLiveStamp();
+}
+
+function onGPSError(err) {
+  document.getElementById('gps-status').textContent = 'Erro GPS: ' + err.message;
+}
+
+function updateLiveStamp() {
+  const el = document.getElementById('live-stamp');
+  const tag = document.getElementById('tag-input').value || '—';
+  const now = new Date();
+  const dt = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR');
+  if (gps.lat) {
+    const utm = latLonToUTM(gps.lat, gps.lon);
+    el.innerHTML = `${tag}<br>LAT ${gps.lat.toFixed(6)}  LON ${gps.lon.toFixed(6)}<br>UTM ${utm.zone}${utm.hem} E:${utm.easting} N:${utm.northing} | ALT: ${gps.alt}m<br>${dt}`;
+  } else {
+    el.textContent = 'Aguardando GPS...';
+  }
+}
+
+document.getElementById('tag-input').addEventListener('input', updateLiveStamp);
+
+// ─── UTM CONVERSION (WGS84) ────────────────────────────────────────
+function latLonToUTM(lat, lon) {
+  const a = 6378137.0, f = 1/298.257223563;
+  const b = a*(1-f), e2 = 1-(b*b)/(a*a), e = Math.sqrt(e2);
+  const k0 = 0.9996;
+  const zone = Math.floor((lon+180)/6)+1;
+  const lon0 = (zone-1)*6-180+3;
+  const latR = lat*Math.PI/180, lonR = lon*Math.PI/180, lon0R = lon0*Math.PI/180;
+  const N = a/Math.sqrt(1-e2*Math.sin(latR)**2);
+  const T = Math.tan(latR)**2, C = (e2/(1-e2))*Math.cos(latR)**2, A = Math.cos(latR)*(lonR-lon0R);
+  const e2p = e2/(1-e2);
+  const M = a*((1-e2/4-3*e2**2/64-5*e2**3/256)*latR
+    -(3*e2/8+3*e2**2/32+45*e2**3/1024)*Math.sin(2*latR)
+    +(15*e2**2/256+45*e2**3/1024)*Math.sin(4*latR)
+    -(35*e2**3/3072)*Math.sin(6*latR));
+  const x = k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T**2+72*C-58*e2p)*A**5/120)+500000;
+  const y = k0*(M+N*Math.tan(latR)*(A**2/2+(5-T+9*C+4*C**2)*A**4/24+(61-58*T+T**2+600*C-330*e2p)*A**6/720));
+  return {
+    zone: zone,
+    hem: lat >= 0 ? 'N' : 'S',
+    easting: Math.round(x),
+    northing: Math.round(lat >= 0 ? y : y+10000000)
+  };
+}
+
+// ─── CAMERA ────────────────────────────────────────────────────────
+async function startCamera() {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+    document.getElementById('video-preview').srcObject = stream;
+  } catch(e) {
+    document.getElementById('video-preview').style.display = 'none';
+  }
+}
+
+document.getElementById('btn-flip').addEventListener('click', () => {
+  facingMode = facingMode === 'environment' ? 'user' : 'environment';
+  startCamera();
+});
+
+// ─── CAPTURE ───────────────────────────────────────────────────────
+document.getElementById('btn-capture').addEventListener('click', async () => {
+  const video = document.getElementById('video-preview');
+  if (!video.srcObject) { showToast('Câmera não disponível'); return; }
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth || 1280;
+  canvas.height = video.videoHeight || 720;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+  addStampAndSave(canvas, ctx);
+});
+
+// ─── FILE IMPORT ───────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', (e) => {
+  Array.from(e.target.files).forEach(file => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width; canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      addStampAndSave(canvas, ctx);
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  });
+  e.target.value = '';
+});
+
+// ─── STAMP & SAVE ──────────────────────────────────────────────────
+function addStampAndSave(canvas, ctx) {
+  const w = canvas.width, h = canvas.height;
+  const tag = document.getElementById('tag-input').value || 'SEM TAG';
+  const now = new Date();
+  const dt = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR');
+
+  let utm = null, lines = [];
+  if (gps.lat !== null) {
+    utm = latLonToUTM(gps.lat, gps.lon);
+    lines = [
+      `VALE S.A. – VISITA TÉCNICA`,
+      `TAG: ${tag}`,
+      `LAT: ${gps.lat.toFixed(6)}   LON: ${gps.lon.toFixed(6)}`,
+      `UTM SIRGAS2000: ${utm.zone}${utm.hem}  E:${utm.easting}  N:${utm.northing}`,
+      `ALT: ${gps.alt}m   ACC: ±${gps.acc}m`,
+      `DATA/HORA: ${dt}`
+    ];
+  } else {
+    lines = [
+      `VALE S.A. – VISITA TÉCNICA`,
+      `TAG: ${tag}`,
+      `GPS NÃO DISPONÍVEL`,
+      `DATA/HORA: ${dt}`
+    ];
+  }
+
+  const fs = Math.max(14, Math.round(w * 0.018));
+  ctx.font = `bold ${fs}px monospace`;
+
+  const lh = fs * 1.55;
+  const pad = fs * 0.7;
+  const bh = lines.length * lh + pad * 2;
+  const bw = w;
+
+  // semi-transparent background strip
+  ctx.fillStyle = 'rgba(10, 18, 28, 0.80)';
+  ctx.fillRect(0, h - bh, bw, bh);
+
+  // orange top border
+  ctx.fillStyle = '#c8860a';
+  ctx.fillRect(0, h - bh, bw, 3);
+
+  // text
+  lines.forEach((line, i) => {
+    ctx.fillStyle = i === 0 ? '#f0a820' : (i === 2 ? '#a0c4e0' : '#dce8f0');
+    ctx.fillText(line, pad, h - bh + pad + lh * i + fs);
+  });
+
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  const record = {
+    dataUrl,
+    tag,
+    lat: gps.lat,
+    lon: gps.lon,
+    alt: gps.alt,
+    acc: gps.acc,
+    utm: utm ? `${utm.zone}${utm.hem} E:${utm.easting} N:${utm.northing}` : null,
+    dt
+  };
+  photos.push(record);
+  renderGallery();
+  showToast('Foto registrada ✓');
+}
+
+// ─── GALLERY ───────────────────────────────────────────────────────
+function renderGallery() {
+  const g = document.getElementById('gallery');
+  document.getElementById('count').textContent = photos.length;
+  if (photos.length === 0) {
+    g.innerHTML = '<div class="empty" id="empty-msg">Nenhuma foto registrada ainda.</div>';
+    return;
+  }
+  g.innerHTML = '';
+  photos.forEach((p, i) => {
+    const card = document.createElement('div');
+    card.className = 'photo-card';
+    card.innerHTML = `
+      <img src="${p.dataUrl}" alt="foto ${i+1}" loading="lazy">
+      <div class="photo-meta">
+        <div class="photo-tag">${p.tag}</div>
+        <div class="photo-coords">${p.lat ? `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}` : 'GPS N/D'}</div>
+        <div class="photo-time">${p.dt}</div>
+      </div>`;
+    card.addEventListener('click', () => openModal(i));
+    g.appendChild(card);
+  });
+}
+
+// ─── MODAL ─────────────────────────────────────────────────────────
+function openModal(i) {
+  selectedIndex = i;
+  const p = photos[i];
+  document.getElementById('modal-img').src = p.dataUrl;
+  document.getElementById('modal-info').innerHTML = `
+    <strong>TAG:</strong> ${p.tag}<br>
+    <strong>LAT/LON:</strong> ${p.lat ? p.lat.toFixed(6) + ' / ' + p.lon.toFixed(6) : 'N/D'}<br>
+    <strong>UTM:</strong> ${p.utm || 'N/D'}<br>
+    <strong>ALT:</strong> ${p.alt || '—'} m &nbsp;|&nbsp; <strong>PRECISÃO:</strong> ±${p.acc || '—'} m<br>
+    <strong>DATA/HORA:</strong> ${p.dt}`;
+  document.getElementById('modal').classList.add('open');
+}
+
+document.getElementById('modal-close').addEventListener('click', () => {
+  document.getElementById('modal').classList.remove('open');
+});
+document.getElementById('modal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('modal')) document.getElementById('modal').classList.remove('open');
+});
+
+document.getElementById('modal-dl').addEventListener('click', () => {
+  if (selectedIndex === null) return;
+  downloadOne(photos[selectedIndex], selectedIndex);
+});
+
+document.getElementById('modal-del').addEventListener('click', () => {
+  if (selectedIndex === null) return;
+  photos.splice(selectedIndex, 1);
+  document.getElementById('modal').classList.remove('open');
+  renderGallery();
+  showToast('Foto removida');
+});
+
+// ─── DOWNLOAD ──────────────────────────────────────────────────────
+function downloadOne(p, i) {
+  const a = document.createElement('a');
+  const tag = p.tag.replace(/[^a-zA-Z0-9_-]/g, '_');
+  a.download = `geofoto_${String(i+1).padStart(3,'0')}_${tag}.jpg`;
+  a.href = p.dataUrl;
+  a.click();
+}
+
+document.getElementById('btn-dl-all').addEventListener('click', () => {
+  if (photos.length === 0) { showToast('Nenhuma foto para baixar'); return; }
+  photos.forEach((p, i) => setTimeout(() => downloadOne(p, i), i * 300));
+});
+
+document.getElementById('btn-dl-csv').addEventListener('click', () => {
+  if (photos.length === 0) { showToast('Nenhum registro para exportar'); return; }
+  const header = 'Nº,TAG,Latitude,Longitude,Altitude(m),Precisao(m),UTM,Data_Hora';
+  const rows = photos.map((p, i) =>
+    `${i+1},"${p.tag}",${p.lat||''},${p.lon||''},${p.alt||''},${p.acc||''},"${p.utm||''}","${p.dt}"`
+  );
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type: 'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'visita_tecnica_pontos.csv'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exportado ✓');
+});
+
+// ─── KML EXPORT ────────────────────────────────────────────────────
+document.getElementById('btn-dl-kml').addEventListener('click', () => {
+  if (photos.length === 0) { showToast('Nenhum registro para exportar'); return; }
+  const today = new Date().toISOString().slice(0,10);
+
+  const placemarks = photos.map((p, i) => {
+    if (!p.lat || !p.lon) return '';
+    const num = String(i+1).padStart(3,'0');
+    const desc = [
+      `<b>TAG:</b> ${p.tag}`,
+      `<b>Latitude:</b> ${p.lat}`,
+      `<b>Longitude:</b> ${p.lon}`,
+      `<b>UTM:</b> ${p.utm || 'N/D'}`,
+      `<b>Altitude:</b> ${p.alt || '—'} m`,
+      `<b>Precisão:</b> ±${p.acc || '—'} m`,
+      `<b>Data/Hora:</b> ${p.dt}`
+    ].join('<br>');
+    return `
+    <Placemark>
+      <name>${num} – ${escXml(p.tag)}</name>
+      <description><![CDATA[${desc}]]></description>
+      <Style>
+        <IconStyle>
+          <color>ff0a86c8</color>
+          <scale>1.1</scale>
+          <Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon>
+        </IconStyle>
+        <LabelStyle><scale>0.85</scale></LabelStyle>
+      </Style>
+      <Point>
+        <altitudeMode>clampToGround</altitudeMode>
+        <coordinates>${p.lon},${p.lat},${p.alt || 0}</coordinates>
+      </Point>
+    </Placemark>`;
+  }).join('\n');
+
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>Visita Tecnica VALE – ${today}</name>
+    <description>Pontos registrados com GeoFoto em ${today}</description>
+    <Folder>
+      <name>Pontos de Registro</name>
+      ${placemarks}
+    </Folder>
+  </Document>
+</kml>`;
+
+  const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `visita_tecnica_${today}.kml`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('KML exportado ✓');
+});
+
+function escXml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── INIT ──────────────────────────────────────────────────────────
+startGPS();
+startCamera();
+setInterval(updateLiveStamp, 5000);
+</script>
+</body>
+</html>
