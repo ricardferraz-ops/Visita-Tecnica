@@ -568,9 +568,7 @@ function startGPS() {
     return;
   }
   navigator.geolocation.watchPosition(onGPS, onGPSError, {
-    enableHighAccuracy: true,
-    maximumAge: 3000,
-    timeout: 15000
+    enableHighAccuracy: true, maximumAge: 3000, timeout: 15000
   });
 }
 
@@ -579,14 +577,12 @@ function onGPS(pos) {
   gps.lon = pos.coords.longitude;
   gps.alt = pos.coords.altitude ? pos.coords.altitude.toFixed(1) : '—';
   gps.acc = pos.coords.accuracy ? pos.coords.accuracy.toFixed(1) : '—';
-
   document.getElementById('gps-dot').classList.add('active');
   document.getElementById('gps-status').textContent = 'GPS ativo';
   document.getElementById('disp-lat').textContent = gps.lat.toFixed(6);
   document.getElementById('disp-lon').textContent = gps.lon.toFixed(6);
   document.getElementById('disp-alt').textContent = gps.alt;
   document.getElementById('disp-acc').textContent = gps.acc;
-
   const utm = latLonToUTM(gps.lat, gps.lon);
   document.getElementById('disp-utm').textContent = `${utm.zone}${utm.hem} E:${utm.easting} N:${utm.northing}`;
   updateLiveStamp();
@@ -611,10 +607,10 @@ function updateLiveStamp() {
 
 document.getElementById('tag-input').addEventListener('input', updateLiveStamp);
 
-// ─── UTM CONVERSION (WGS84) ────────────────────────────────────────
+// ─── UTM (WGS84 = SIRGAS 2000) ─────────────────────────────────────
 function latLonToUTM(lat, lon) {
   const a = 6378137.0, f = 1/298.257223563;
-  const b = a*(1-f), e2 = 1-(b*b)/(a*a), e = Math.sqrt(e2);
+  const b = a*(1-f), e2 = 1-(b*b)/(a*a);
   const k0 = 0.9996;
   const zone = Math.floor((lon+180)/6)+1;
   const lon0 = (zone-1)*6-180+3;
@@ -628,12 +624,40 @@ function latLonToUTM(lat, lon) {
     -(35*e2**3/3072)*Math.sin(6*latR));
   const x = k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T**2+72*C-58*e2p)*A**5/120)+500000;
   const y = k0*(M+N*Math.tan(latR)*(A**2/2+(5-T+9*C+4*C**2)*A**4/24+(61-58*T+T**2+600*C-330*e2p)*A**6/720));
-  return {
-    zone: zone,
-    hem: lat >= 0 ? 'N' : 'S',
-    easting: Math.round(x),
-    northing: Math.round(lat >= 0 ? y : y+10000000)
-  };
+  return { zone, hem: lat >= 0 ? 'N' : 'S', easting: Math.round(x), northing: Math.round(lat >= 0 ? y : y+10000000) };
+}
+
+// ─── GMS ───────────────────────────────────────────────────────────
+function decToGMS(dec, isLat) {
+  const abs = Math.abs(dec);
+  const d = Math.floor(abs);
+  const mFull = (abs - d) * 60;
+  const m = Math.floor(mFull);
+  const s = ((mFull - m) * 60).toFixed(2);
+  const dir = isLat ? (dec >= 0 ? 'N' : 'S') : (dec >= 0 ? 'L' : 'O');
+  return `${d}°${String(m).padStart(2,'0')}'${String(s).padStart(5,'0')}"${dir}`;
+}
+
+// ─── LOCAL STORAGE ─────────────────────────────────────────────────
+const STORAGE_KEY = 'geofoto_visita_v1';
+
+function saveToStorage() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(photos));
+  } catch(e) {
+    showToast('⚠️ Armazenamento cheio! Exporte as fotos.');
+  }
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      photos = JSON.parse(raw);
+      renderGallery();
+      if (photos.length > 0) showToast(`${photos.length} foto(s) restaurada(s) ✓`);
+    }
+  } catch(e) { photos = []; }
 }
 
 // ─── CAMERA ────────────────────────────────────────────────────────
@@ -641,8 +665,7 @@ async function startCamera() {
   if (stream) stream.getTracks().forEach(t => t.stop());
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
-      audio: false
+      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false
     });
     document.getElementById('video-preview').srcObject = stream;
   } catch(e) {
@@ -692,62 +715,62 @@ function addStampAndSave(canvas, ctx) {
   const now = new Date();
   const dt = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR');
 
-  let utm = null, lines = [];
+  let utm = null, latGMS = null, lonGMS = null, lines = [];
   if (gps.lat !== null) {
     utm = latLonToUTM(gps.lat, gps.lon);
+    latGMS = decToGMS(gps.lat, true);
+    lonGMS = decToGMS(gps.lon, false);
     lines = [
-      `VALE S.A. – VISITA TÉCNICA`,
+      `VALE S.A. – VISITA TECNICA`,
       `TAG: ${tag}`,
-      `LAT: ${gps.lat.toFixed(6)}   LON: ${gps.lon.toFixed(6)}`,
+      `LAT: ${gps.lat.toFixed(6)}  LON: ${gps.lon.toFixed(6)}`,
+      `GMS: ${latGMS}  ${lonGMS}`,
       `UTM SIRGAS2000: ${utm.zone}${utm.hem}  E:${utm.easting}  N:${utm.northing}`,
-      `ALT: ${gps.alt}m   ACC: ±${gps.acc}m`,
+      `ALT: ${gps.alt}m   ACC: +-${gps.acc}m`,
       `DATA/HORA: ${dt}`
     ];
   } else {
     lines = [
-      `VALE S.A. – VISITA TÉCNICA`,
+      `VALE S.A. – VISITA TECNICA`,
       `TAG: ${tag}`,
-      `GPS NÃO DISPONÍVEL`,
+      `GPS NAO DISPONIVEL`,
       `DATA/HORA: ${dt}`
     ];
   }
 
   const fs = Math.max(14, Math.round(w * 0.018));
   ctx.font = `bold ${fs}px monospace`;
-
   const lh = fs * 1.55;
   const pad = fs * 0.7;
   const bh = lines.length * lh + pad * 2;
-  const bw = w;
 
-  // semi-transparent background strip
-  ctx.fillStyle = 'rgba(10, 18, 28, 0.80)';
-  ctx.fillRect(0, h - bh, bw, bh);
-
-  // orange top border
+  ctx.fillStyle = 'rgba(10, 18, 28, 0.82)';
+  ctx.fillRect(0, h - bh, w, bh);
   ctx.fillStyle = '#c8860a';
-  ctx.fillRect(0, h - bh, bw, 3);
+  ctx.fillRect(0, h - bh, w, 3);
 
-  // text
   lines.forEach((line, i) => {
-    ctx.fillStyle = i === 0 ? '#f0a820' : (i === 2 ? '#a0c4e0' : '#dce8f0');
+    ctx.fillStyle = i === 0 ? '#f0a820' : (i === 2 || i === 3 ? '#a0c4e0' : '#dce8f0');
     ctx.fillText(line, pad, h - bh + pad + lh * i + fs);
   });
 
   const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
   const record = {
-    dataUrl,
-    tag,
-    lat: gps.lat,
-    lon: gps.lon,
-    alt: gps.alt,
-    acc: gps.acc,
+    dataUrl, tag,
+    lat: gps.lat, lon: gps.lon,
+    latGMS, lonGMS,
+    alt: gps.alt, acc: gps.acc,
     utm: utm ? `${utm.zone}${utm.hem} E:${utm.easting} N:${utm.northing}` : null,
+    utmZone: utm ? `${utm.zone}${utm.hem}` : null,
+    utmE: utm ? utm.easting : null,
+    utmN: utm ? utm.northing : null,
+    datum: 'SIRGAS 2000 / WGS 84',
     dt
   };
   photos.push(record);
+  saveToStorage();
   renderGallery();
-  showToast('Foto registrada ✓');
+  showToast('Foto salva automaticamente ✓');
 }
 
 // ─── GALLERY ───────────────────────────────────────────────────────
@@ -755,7 +778,7 @@ function renderGallery() {
   const g = document.getElementById('gallery');
   document.getElementById('count').textContent = photos.length;
   if (photos.length === 0) {
-    g.innerHTML = '<div class="empty" id="empty-msg">Nenhuma foto registrada ainda.</div>';
+    g.innerHTML = '<div class="empty">Nenhuma foto registrada ainda.</div>';
     return;
   }
   g.innerHTML = '';
@@ -781,7 +804,9 @@ function openModal(i) {
   document.getElementById('modal-img').src = p.dataUrl;
   document.getElementById('modal-info').innerHTML = `
     <strong>TAG:</strong> ${p.tag}<br>
+    <strong>Datum:</strong> ${p.datum || 'SIRGAS 2000 / WGS 84'}<br>
     <strong>LAT/LON:</strong> ${p.lat ? p.lat.toFixed(6) + ' / ' + p.lon.toFixed(6) : 'N/D'}<br>
+    <strong>GMS:</strong> ${p.latGMS || 'N/D'} / ${p.lonGMS || 'N/D'}<br>
     <strong>UTM:</strong> ${p.utm || 'N/D'}<br>
     <strong>ALT:</strong> ${p.alt || '—'} m &nbsp;|&nbsp; <strong>PRECISÃO:</strong> ±${p.acc || '—'} m<br>
     <strong>DATA/HORA:</strong> ${p.dt}`;
@@ -794,15 +819,14 @@ document.getElementById('modal-close').addEventListener('click', () => {
 document.getElementById('modal').addEventListener('click', (e) => {
   if (e.target === document.getElementById('modal')) document.getElementById('modal').classList.remove('open');
 });
-
 document.getElementById('modal-dl').addEventListener('click', () => {
   if (selectedIndex === null) return;
   downloadOne(photos[selectedIndex], selectedIndex);
 });
-
 document.getElementById('modal-del').addEventListener('click', () => {
   if (selectedIndex === null) return;
   photos.splice(selectedIndex, 1);
+  saveToStorage();
   document.getElementById('modal').classList.remove('open');
   renderGallery();
   showToast('Foto removida');
@@ -824,9 +848,9 @@ document.getElementById('btn-dl-all').addEventListener('click', () => {
 
 document.getElementById('btn-dl-csv').addEventListener('click', () => {
   if (photos.length === 0) { showToast('Nenhum registro para exportar'); return; }
-  const header = 'Nº,TAG,Latitude,Longitude,Altitude(m),Precisao(m),UTM,Data_Hora';
+  const header = 'Nr,TAG,Datum,Latitude_Dec,Longitude_Dec,Lat_GMS,Lon_GMS,UTM_Fuso,UTM_E(m),UTM_N(m),Altitude(m),Precisao(m),Data_Hora';
   const rows = photos.map((p, i) =>
-    `${i+1},"${p.tag}",${p.lat||''},${p.lon||''},${p.alt||''},${p.acc||''},"${p.utm||''}","${p.dt}"`
+    `${i+1},"${p.tag}","${p.datum||'SIRGAS 2000 / WGS 84'}",${p.lat||''},${p.lon||''},"${p.latGMS||''}","${p.lonGMS||''}","${p.utmZone||''}",${p.utmE||''},${p.utmN||''},${p.alt||''},${p.acc||''},"${p.dt}"`
   );
   const csv = [header, ...rows].join('\n');
   const blob = new Blob(['\uFEFF'+csv], {type: 'text/csv;charset=utf-8'});
@@ -841,17 +865,17 @@ document.getElementById('btn-dl-csv').addEventListener('click', () => {
 document.getElementById('btn-dl-kml').addEventListener('click', () => {
   if (photos.length === 0) { showToast('Nenhum registro para exportar'); return; }
   const today = new Date().toISOString().slice(0,10);
-
   const placemarks = photos.map((p, i) => {
     if (!p.lat || !p.lon) return '';
     const num = String(i+1).padStart(3,'0');
     const desc = [
       `<b>TAG:</b> ${p.tag}`,
-      `<b>Latitude:</b> ${p.lat}`,
-      `<b>Longitude:</b> ${p.lon}`,
+      `<b>Datum:</b> ${p.datum || 'SIRGAS 2000 / WGS 84'}`,
+      `<b>Latitude:</b> ${p.lat} (${p.latGMS||''})`,
+      `<b>Longitude:</b> ${p.lon} (${p.lonGMS||''})`,
       `<b>UTM:</b> ${p.utm || 'N/D'}`,
       `<b>Altitude:</b> ${p.alt || '—'} m`,
-      `<b>Precisão:</b> ±${p.acc || '—'} m`,
+      `<b>Precisao:</b> +-${p.acc || '—'} m`,
       `<b>Data/Hora:</b> ${p.dt}`
     ].join('<br>');
     return `
@@ -859,9 +883,7 @@ document.getElementById('btn-dl-kml').addEventListener('click', () => {
       <name>${num} – ${escXml(p.tag)}</name>
       <description><![CDATA[${desc}]]></description>
       <Style>
-        <IconStyle>
-          <color>ff0a86c8</color>
-          <scale>1.1</scale>
+        <IconStyle><color>ff0a86c8</color><scale>1.1</scale>
           <Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon>
         </IconStyle>
         <LabelStyle><scale>0.85</scale></LabelStyle>
@@ -877,10 +899,9 @@ document.getElementById('btn-dl-kml').addEventListener('click', () => {
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>Visita Tecnica VALE – ${today}</name>
-    <description>Pontos registrados com GeoFoto em ${today}</description>
+    <description>Datum: SIRGAS 2000 / WGS 84 – Gerado em ${today}</description>
     <Folder>
-      <name>Pontos de Registro</name>
-      ${placemarks}
+      <name>Pontos de Registro</name>${placemarks}
     </Folder>
   </Document>
 </kml>`;
@@ -888,9 +909,7 @@ document.getElementById('btn-dl-kml').addEventListener('click', () => {
   const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = `visita_tecnica_${today}.kml`;
-  a.click();
+  a.href = url; a.download = `visita_tecnica_${today}.kml`; a.click();
   URL.revokeObjectURL(url);
   showToast('KML exportado ✓');
 });
@@ -910,6 +929,7 @@ function showToast(msg) {
 // ─── INIT ──────────────────────────────────────────────────────────
 startGPS();
 startCamera();
+loadFromStorage();
 setInterval(updateLiveStamp, 5000);
 </script>
 </body>
