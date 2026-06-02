@@ -173,8 +173,96 @@
     border: 2px solid var(--steel-light);
     display: block;
     background: #000;
-    aspect-ratio: 4/3;
+    aspect-ratio: 16/10;
     object-fit: cover;
+  }
+
+  /* FULLSCREEN CAMERA */
+  .camera-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: #000;
+    display: none;
+    flex-direction: column;
+  }
+  .camera-fullscreen.open { display: flex; }
+  .camera-fullscreen #fs-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    inset: 0;
+  }
+  .fs-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .fs-stamp {
+    position: absolute;
+    bottom: 110px;
+    left: 12px; right: 12px;
+    background: rgba(10,18,28,0.78);
+    backdrop-filter: blur(4px);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--ore-light);
+    line-height: 1.6;
+    pointer-events: none;
+  }
+  .fs-controls {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(0deg, rgba(10,18,28,0.9) 0%, transparent 100%);
+  }
+  .fs-btn-capture {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: white;
+    border: 4px solid var(--ore);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .fs-btn-capture:active { transform: scale(0.93); }
+  .fs-btn-close {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    border-radius: 50%;
+    width: 44px; height: 44px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .fs-btn-flip {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    border-radius: 50%;
+    width: 44px; height: 44px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .btn-expand {
+    position: absolute;
+    top: 8px; right: 8px;
+    background: rgba(10,18,28,0.7);
+    border: 1px solid var(--ore);
+    color: var(--ore-light);
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 0.72rem;
+    font-family: var(--mono);
+    cursor: pointer;
+    z-index: 10;
   }
 
   .viewfinder-overlay {
@@ -614,6 +702,7 @@
 <!-- Camera -->
 <div class="camera-section">
   <video id="video-preview" autoplay playsinline muted></video>
+  <button class="btn-expand" id="btn-expand">⛶ Tela cheia</button>
   <div class="viewfinder-overlay">
     <div class="corner tl"></div><div class="corner tr"></div>
     <div class="corner bl"></div><div class="corner br"></div>
@@ -625,6 +714,21 @@
 <div class="btn-row">
   <button class="btn btn-primary" id="btn-capture">📷 Capturar</button>
   <button class="btn btn-secondary" id="btn-flip">🔄</button>
+</div>
+
+<!-- Fullscreen Camera -->
+<div class="camera-fullscreen" id="camera-fullscreen">
+  <video id="fs-video" autoplay playsinline muted></video>
+  <div class="fs-overlay">
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+  </div>
+  <div class="fs-stamp" id="fs-stamp">Aguardando GPS...</div>
+  <div class="fs-controls">
+    <button class="fs-btn-close" id="fs-close">✕</button>
+    <button class="fs-btn-capture" id="fs-capture"></button>
+    <button class="fs-btn-flip" id="fs-flip">🔄</button>
+  </div>
 </div>
 
 <label class="file-label" for="file-input">📂 Ou importar foto da galeria</label>
@@ -1147,6 +1251,70 @@ function showToast(msg) {
   const t = document.getElementById('toast'); t.textContent = msg;
   t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2800);
 }
+
+// ─── FULLSCREEN CAMERA ─────────────────────────────────────────────
+let fsStream = null;
+
+document.getElementById('btn-expand').addEventListener('click', openFullscreen);
+
+async function openFullscreen() {
+  if (!activeVisitId) { showToast('Crie uma visita primeiro!'); return; }
+  const fs = document.getElementById('camera-fullscreen');
+  fs.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  try {
+    if (fsStream) fsStream.getTracks().forEach(t => t.stop());
+    fsStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode, width:{ideal:1920}, height:{ideal:1080} }, audio: false
+    });
+    document.getElementById('fs-video').srcObject = fsStream;
+  } catch(e) { showToast('Câmera não disponível'); closeFullscreen(); }
+  updateFsStamp();
+}
+
+function closeFullscreen() {
+  document.getElementById('camera-fullscreen').classList.remove('open');
+  document.body.style.overflow = '';
+  if (fsStream) { fsStream.getTracks().forEach(t => t.stop()); fsStream = null; }
+}
+
+function updateFsStamp() {
+  const el = document.getElementById('fs-stamp');
+  const tag = document.getElementById('tag-input').value || '—';
+  const now = new Date();
+  const dt = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR');
+  if (gps.lat) {
+    const utm = latLonToUTM(gps.lat, gps.lon);
+    el.innerHTML = `${tag}<br>LAT ${gps.lat.toFixed(6)}  LON ${gps.lon.toFixed(6)}<br>UTM ${utm.zone}${utm.hem} E:${utm.easting} N:${utm.northing}<br>${dt}`;
+  } else { el.textContent = 'Aguardando GPS...'; }
+}
+
+document.getElementById('fs-close').addEventListener('click', closeFullscreen);
+
+document.getElementById('fs-flip').addEventListener('click', async () => {
+  facingMode = facingMode === 'environment' ? 'user' : 'environment';
+  if (fsStream) fsStream.getTracks().forEach(t => t.stop());
+  fsStream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode, width:{ideal:1920}, height:{ideal:1080} }, audio: false
+  });
+  document.getElementById('fs-video').srcObject = fsStream;
+  startCamera(); // also update main preview
+});
+
+document.getElementById('fs-capture').addEventListener('click', () => {
+  const video = document.getElementById('fs-video');
+  if (!video.srcObject) { showToast('Câmera não disponível'); return; }
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth || 1280; canvas.height = video.videoHeight || 720;
+  const ctx = canvas.getContext('2d'); ctx.drawImage(video, 0, 0);
+  addStampAndSave(canvas, ctx);
+  // Flash feedback
+  const fs = document.getElementById('camera-fullscreen');
+  fs.style.background = 'white';
+  setTimeout(() => { fs.style.background = '#000'; }, 80);
+});
+
+setInterval(updateFsStamp, 4000);
 
 // ─── SERVICE WORKER ────────────────────────────────────────────────
 if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(()=>{}); }
