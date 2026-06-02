@@ -448,6 +448,118 @@
   .modal-actions .btn { font-size: 0.78rem; padding: 9px; }
 
 </style>
+<style>
+/* VISIT SELECTOR */
+.visit-section {
+  margin: 0 12px 8px;
+  background: var(--steel-mid);
+  border: 1px solid var(--ore);
+  border-radius: 5px;
+  padding: 10px 12px;
+}
+.visit-section label {
+  font-size: 0.68rem;
+  color: var(--ore);
+  font-family: var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 6px;
+}
+.visit-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.visit-select {
+  flex: 1;
+  background: var(--steel);
+  border: 1px solid var(--steel-light);
+  border-radius: 4px;
+  padding: 8px 10px;
+  color: var(--chalk);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  outline: none;
+}
+.visit-select:focus { border-color: var(--ore); }
+.btn-new-visit {
+  background: var(--ore);
+  color: #0d1620;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.visit-badge {
+  display: inline-block;
+  background: var(--ore);
+  color: #0d1620;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  padding: 2px 6px;
+  border-radius: 2px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* EXPORT MODAL */
+.export-modal {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.88);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+}
+.export-modal.open { display: flex; }
+.export-box {
+  background: var(--steel-mid);
+  border: 1px solid var(--ore);
+  border-radius: 8px;
+  max-width: 420px;
+  width: 100%;
+  padding: 16px;
+}
+.export-box h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ore-light);
+  margin-bottom: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.export-visit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+.export-visit-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--steel);
+  border: 1px solid var(--steel-light);
+  border-radius: 4px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.export-visit-item:hover { border-color: var(--ore); }
+.export-visit-item input[type=checkbox] { accent-color: var(--ore); width: 16px; height: 16px; }
+.export-visit-item span { font-family: var(--mono); font-size: 0.75rem; color: var(--chalk); flex: 1; }
+.export-visit-item small { font-family: var(--mono); font-size: 0.62rem; color: var(--dust); }
+.export-actions { display: flex; gap: 8px; }
+.export-actions .btn { font-size: 0.8rem; padding: 10px; }
+</style>
 </head>
 <body>
 
@@ -459,6 +571,15 @@
   </div>
 </header>
 
+<!-- Visit Selector -->
+<div class="visit-section">
+  <label>Visita Ativa</label>
+  <div class="visit-row">
+    <select class="visit-select" id="visit-select"></select>
+    <button class="btn-new-visit" id="btn-new-visit">+ Nova</button>
+  </div>
+</div>
+
 <!-- GPS Panel -->
 <div class="gps-panel">
   <div class="gps-row">
@@ -466,26 +587,11 @@
     <span class="gps-status" id="gps-status">Aguardando sinal GPS...</span>
   </div>
   <div class="coords-grid">
-    <div class="coord-box">
-      <label>LAT</label>
-      <span id="disp-lat">---.------</span>
-    </div>
-    <div class="coord-box">
-      <label>LON</label>
-      <span id="disp-lon">---.------</span>
-    </div>
-    <div class="coord-box">
-      <label>ALT (m)</label>
-      <span id="disp-alt">---</span>
-    </div>
-    <div class="coord-box">
-      <label>PRECISÃO (m)</label>
-      <span id="disp-acc">---</span>
-    </div>
-    <div class="coord-box full">
-      <label>UTM (SIRGAS 2000 – estimado)</label>
-      <span id="disp-utm">---</span>
-    </div>
+    <div class="coord-box"><label>LAT</label><span id="disp-lat">---.------</span></div>
+    <div class="coord-box"><label>LON</label><span id="disp-lon">---.------</span></div>
+    <div class="coord-box"><label>ALT (m)</label><span id="disp-alt">---</span></div>
+    <div class="coord-box"><label>PRECISÃO (m)</label><span id="disp-acc">---</span></div>
+    <div class="coord-box full"><label>UTM (SIRGAS 2000)</label><span id="disp-utm">---</span></div>
   </div>
 </div>
 
@@ -499,10 +605,8 @@
 <div class="camera-section">
   <video id="video-preview" autoplay playsinline muted></video>
   <div class="viewfinder-overlay">
-    <div class="corner tl"></div>
-    <div class="corner tr"></div>
-    <div class="corner bl"></div>
-    <div class="corner br"></div>
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
     <div class="crosshair"></div>
     <div class="live-stamp" id="live-stamp">Aguardando GPS...</div>
   </div>
@@ -513,18 +617,17 @@
   <button class="btn btn-secondary" id="btn-flip">🔄</button>
 </div>
 
-<!-- File import -->
 <label class="file-label" for="file-input">📂 Ou importar foto da galeria</label>
 <input type="file" id="file-input" accept="image/*" multiple>
 
 <!-- Gallery -->
 <div class="gallery-header">
-  <h2>Registros</h2>
+  <h2>Registros <span id="visit-badge" class="visit-badge"></span></h2>
   <span id="count">0</span>
 </div>
 
 <div class="gallery" id="gallery">
-  <div class="empty" id="empty-msg">Nenhuma foto registrada ainda.</div>
+  <div class="empty">Nenhuma foto registrada ainda.</div>
 </div>
 
 <!-- Download bar -->
@@ -534,13 +637,10 @@
   <button class="btn-dl btn-dl-kml" id="btn-dl-kml">🌍 KML</button>
 </div>
 
-<!-- Hidden canvas -->
 <canvas id="offscreen"></canvas>
-
-<!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<!-- Modal -->
+<!-- Photo Modal -->
 <div class="modal-overlay" id="modal">
   <div class="modal-box">
     <img id="modal-img" src="" alt="">
@@ -553,18 +653,90 @@
   </div>
 </div>
 
+<!-- Export Modal -->
+<div class="export-modal" id="export-modal">
+  <div class="export-box">
+    <h3 id="export-title">Selecionar Visitas</h3>
+    <div class="export-visit-list" id="export-visit-list"></div>
+    <div class="export-actions">
+      <button class="btn btn-primary" id="export-confirm">Exportar</button>
+      <button class="btn btn-secondary" id="export-cancel">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ─── STATE ─────────────────────────────────────────────────────────
 let gps = { lat: null, lon: null, alt: null, acc: null };
-let photos = [];
+let visits = {};       // { visitId: { name, date, photos: [] } }
+let activeVisitId = null;
 let stream = null;
 let facingMode = 'environment';
 let selectedIndex = null;
+let exportType = null; // 'csv' | 'kml' | 'photos'
+
+const STORAGE_KEY = 'geofoto_visits_v2';
+
+// ─── VISIT MANAGEMENT ──────────────────────────────────────────────
+function createVisit(name) {
+  const id = 'v_' + Date.now();
+  visits[id] = { id, name, date: new Date().toLocaleDateString('pt-BR'), photos: [] };
+  activeVisitId = id;
+  saveToStorage();
+  renderVisitSelector();
+  renderGallery();
+  return id;
+}
+
+function getActiveVisit() {
+  return visits[activeVisitId] || null;
+}
+
+function getActivePhotos() {
+  const v = getActiveVisit();
+  return v ? v.photos : [];
+}
+
+function renderVisitSelector() {
+  const sel = document.getElementById('visit-select');
+  sel.innerHTML = '';
+  const ids = Object.keys(visits);
+  if (ids.length === 0) {
+    sel.innerHTML = '<option value="">— Nenhuma visita —</option>';
+    document.getElementById('visit-badge').textContent = '';
+    return;
+  }
+  ids.forEach(id => {
+    const v = visits[id];
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = `${v.name} (${v.date})`;
+    if (id === activeVisitId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  const active = getActiveVisit();
+  document.getElementById('visit-badge').textContent = active ? active.name : '';
+}
+
+document.getElementById('visit-select').addEventListener('change', (e) => {
+  activeVisitId = e.target.value;
+  saveToStorage();
+  renderGallery();
+  const active = getActiveVisit();
+  document.getElementById('visit-badge').textContent = active ? active.name : '';
+});
+
+document.getElementById('btn-new-visit').addEventListener('click', () => {
+  const name = prompt('Nome da visita:\n(ex: Visita 1 – Mina Carajás – 01/06/2026)');
+  if (!name || !name.trim()) return;
+  createVisit(name.trim());
+  showToast(`Visita "${name.trim()}" criada ✓`);
+});
 
 // ─── GPS ───────────────────────────────────────────────────────────
 function startGPS() {
   if (!navigator.geolocation) {
-    document.getElementById('gps-status').textContent = 'GPS não suportado neste navegador.';
+    document.getElementById('gps-status').textContent = 'GPS não suportado.';
     return;
   }
   navigator.geolocation.watchPosition(onGPS, onGPSError, {
@@ -599,15 +771,14 @@ function updateLiveStamp() {
   const dt = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR');
   if (gps.lat) {
     const utm = latLonToUTM(gps.lat, gps.lon);
-    el.innerHTML = `${tag}<br>LAT ${gps.lat.toFixed(6)}  LON ${gps.lon.toFixed(6)}<br>UTM ${utm.zone}${utm.hem} E:${utm.easting} N:${utm.northing} | ALT: ${gps.alt}m<br>${dt}`;
+    el.innerHTML = `${tag}<br>LAT ${gps.lat.toFixed(6)}  LON ${gps.lon.toFixed(6)}<br>UTM ${utm.zone}${utm.hem} E:${utm.easting} N:${utm.northing}<br>${dt}`;
   } else {
     el.textContent = 'Aguardando GPS...';
   }
 }
-
 document.getElementById('tag-input').addEventListener('input', updateLiveStamp);
 
-// ─── UTM (WGS84 = SIRGAS 2000) ─────────────────────────────────────
+// ─── UTM ───────────────────────────────────────────────────────────
 function latLonToUTM(lat, lon) {
   const a = 6378137.0, f = 1/298.257223563;
   const b = a*(1-f), e2 = 1-(b*b)/(a*a);
@@ -627,7 +798,6 @@ function latLonToUTM(lat, lon) {
   return { zone, hem: lat >= 0 ? 'N' : 'S', easting: Math.round(x), northing: Math.round(lat >= 0 ? y : y+10000000) };
 }
 
-// ─── GMS ───────────────────────────────────────────────────────────
 function decToGMS(dec, isLat) {
   const abs = Math.abs(dec);
   const d = Math.floor(abs);
@@ -638,14 +808,12 @@ function decToGMS(dec, isLat) {
   return `${d}°${String(m).padStart(2,'0')}'${String(s).padStart(5,'0')}"${dir}`;
 }
 
-// ─── LOCAL STORAGE ─────────────────────────────────────────────────
-const STORAGE_KEY = 'geofoto_visita_v1';
-
+// ─── STORAGE ───────────────────────────────────────────────────────
 function saveToStorage() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(photos));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ visits, activeVisitId }));
   } catch(e) {
-    showToast('⚠️ Armazenamento cheio! Exporte as fotos.');
+    showToast('⚠️ Armazenamento cheio! Exporte e limpe.');
   }
 }
 
@@ -653,11 +821,17 @@ function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      photos = JSON.parse(raw);
+      const data = JSON.parse(raw);
+      visits = data.visits || {};
+      activeVisitId = data.activeVisitId || null;
+      // Ensure activeVisitId is valid
+      if (activeVisitId && !visits[activeVisitId]) activeVisitId = Object.keys(visits)[0] || null;
+      renderVisitSelector();
       renderGallery();
-      if (photos.length > 0) showToast(`${photos.length} foto(s) restaurada(s) ✓`);
+      const total = Object.values(visits).reduce((s, v) => s + v.photos.length, 0);
+      if (total > 0) showToast(`${Object.keys(visits).length} visita(s) restaurada(s) ✓`);
     }
-  } catch(e) { photos = []; }
+  } catch(e) { visits = {}; activeVisitId = null; }
 }
 
 // ─── CAMERA ────────────────────────────────────────────────────────
@@ -679,7 +853,8 @@ document.getElementById('btn-flip').addEventListener('click', () => {
 });
 
 // ─── CAPTURE ───────────────────────────────────────────────────────
-document.getElementById('btn-capture').addEventListener('click', async () => {
+document.getElementById('btn-capture').addEventListener('click', () => {
+  if (!activeVisitId) { showToast('Crie uma visita primeiro!'); return; }
   const video = document.getElementById('video-preview');
   if (!video.srcObject) { showToast('Câmera não disponível'); return; }
   const canvas = document.createElement('canvas');
@@ -690,8 +865,8 @@ document.getElementById('btn-capture').addEventListener('click', async () => {
   addStampAndSave(canvas, ctx);
 });
 
-// ─── FILE IMPORT ───────────────────────────────────────────────────
 document.getElementById('file-input').addEventListener('change', (e) => {
+  if (!activeVisitId) { showToast('Crie uma visita primeiro!'); return; }
   Array.from(e.target.files).forEach(file => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -712,6 +887,8 @@ document.getElementById('file-input').addEventListener('change', (e) => {
 function addStampAndSave(canvas, ctx) {
   const w = canvas.width, h = canvas.height;
   const tag = document.getElementById('tag-input').value || 'SEM TAG';
+  const visit = getActiveVisit();
+  const visitName = visit ? visit.name : '—';
   const now = new Date();
   const dt = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR');
 
@@ -721,7 +898,7 @@ function addStampAndSave(canvas, ctx) {
     latGMS = decToGMS(gps.lat, true);
     lonGMS = decToGMS(gps.lon, false);
     lines = [
-      `VALE S.A. – VISITA TECNICA`,
+      `VALE S.A. – ${visitName}`,
       `TAG: ${tag}`,
       `LAT: ${gps.lat.toFixed(6)}  LON: ${gps.lon.toFixed(6)}`,
       `GMS: ${latGMS}  ${lonGMS}`,
@@ -731,7 +908,7 @@ function addStampAndSave(canvas, ctx) {
     ];
   } else {
     lines = [
-      `VALE S.A. – VISITA TECNICA`,
+      `VALE S.A. – ${visitName}`,
       `TAG: ${tag}`,
       `GPS NAO DISPONIVEL`,
       `DATA/HORA: ${dt}`
@@ -740,15 +917,12 @@ function addStampAndSave(canvas, ctx) {
 
   const fs = Math.max(14, Math.round(w * 0.018));
   ctx.font = `bold ${fs}px monospace`;
-  const lh = fs * 1.55;
-  const pad = fs * 0.7;
+  const lh = fs * 1.55, pad = fs * 0.7;
   const bh = lines.length * lh + pad * 2;
-
-  ctx.fillStyle = 'rgba(10, 18, 28, 0.82)';
+  ctx.fillStyle = 'rgba(10,18,28,0.82)';
   ctx.fillRect(0, h - bh, w, bh);
   ctx.fillStyle = '#c8860a';
   ctx.fillRect(0, h - bh, w, 3);
-
   lines.forEach((line, i) => {
     ctx.fillStyle = i === 0 ? '#f0a820' : (i === 2 || i === 3 ? '#a0c4e0' : '#dce8f0');
     ctx.fillText(line, pad, h - bh + pad + lh * i + fs);
@@ -756,29 +930,28 @@ function addStampAndSave(canvas, ctx) {
 
   const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
   const record = {
-    dataUrl, tag,
-    lat: gps.lat, lon: gps.lon,
-    latGMS, lonGMS,
+    dataUrl, tag, visitId: activeVisitId, visitName,
+    lat: gps.lat, lon: gps.lon, latGMS, lonGMS,
     alt: gps.alt, acc: gps.acc,
     utm: utm ? `${utm.zone}${utm.hem} E:${utm.easting} N:${utm.northing}` : null,
     utmZone: utm ? `${utm.zone}${utm.hem}` : null,
     utmE: utm ? utm.easting : null,
     utmN: utm ? utm.northing : null,
-    datum: 'SIRGAS 2000 / WGS 84',
-    dt
+    datum: 'SIRGAS 2000 / WGS 84', dt
   };
-  photos.push(record);
+  visits[activeVisitId].photos.push(record);
   saveToStorage();
   renderGallery();
-  showToast('Foto salva automaticamente ✓');
+  showToast('Foto salva ✓');
 }
 
 // ─── GALLERY ───────────────────────────────────────────────────────
 function renderGallery() {
   const g = document.getElementById('gallery');
+  const photos = getActivePhotos();
   document.getElementById('count').textContent = photos.length;
   if (photos.length === 0) {
-    g.innerHTML = '<div class="empty">Nenhuma foto registrada ainda.</div>';
+    g.innerHTML = '<div class="empty">Nenhuma foto nesta visita.</div>';
     return;
   }
   g.innerHTML = '';
@@ -800,82 +973,121 @@ function renderGallery() {
 // ─── MODAL ─────────────────────────────────────────────────────────
 function openModal(i) {
   selectedIndex = i;
-  const p = photos[i];
+  const p = getActivePhotos()[i];
   document.getElementById('modal-img').src = p.dataUrl;
   document.getElementById('modal-info').innerHTML = `
+    <strong>Visita:</strong> ${p.visitName}<br>
     <strong>TAG:</strong> ${p.tag}<br>
-    <strong>Datum:</strong> ${p.datum || 'SIRGAS 2000 / WGS 84'}<br>
-    <strong>LAT/LON:</strong> ${p.lat ? p.lat.toFixed(6) + ' / ' + p.lon.toFixed(6) : 'N/D'}<br>
-    <strong>GMS:</strong> ${p.latGMS || 'N/D'} / ${p.lonGMS || 'N/D'}<br>
-    <strong>UTM:</strong> ${p.utm || 'N/D'}<br>
-    <strong>ALT:</strong> ${p.alt || '—'} m &nbsp;|&nbsp; <strong>PRECISÃO:</strong> ±${p.acc || '—'} m<br>
+    <strong>Datum:</strong> ${p.datum||'SIRGAS 2000 / WGS 84'}<br>
+    <strong>LAT/LON:</strong> ${p.lat ? p.lat.toFixed(6)+' / '+p.lon.toFixed(6) : 'N/D'}<br>
+    <strong>GMS:</strong> ${p.latGMS||'N/D'} / ${p.lonGMS||'N/D'}<br>
+    <strong>UTM:</strong> ${p.utm||'N/D'}<br>
+    <strong>ALT:</strong> ${p.alt||'—'} m | <strong>PRECISÃO:</strong> ±${p.acc||'—'} m<br>
     <strong>DATA/HORA:</strong> ${p.dt}`;
   document.getElementById('modal').classList.add('open');
 }
 
-document.getElementById('modal-close').addEventListener('click', () => {
-  document.getElementById('modal').classList.remove('open');
-});
-document.getElementById('modal').addEventListener('click', (e) => {
-  if (e.target === document.getElementById('modal')) document.getElementById('modal').classList.remove('open');
-});
+document.getElementById('modal-close').addEventListener('click', () => document.getElementById('modal').classList.remove('open'));
+document.getElementById('modal').addEventListener('click', (e) => { if (e.target === document.getElementById('modal')) document.getElementById('modal').classList.remove('open'); });
+
 document.getElementById('modal-dl').addEventListener('click', () => {
   if (selectedIndex === null) return;
-  downloadOne(photos[selectedIndex], selectedIndex);
+  const p = getActivePhotos()[selectedIndex];
+  const a = document.createElement('a');
+  a.download = `geofoto_${String(selectedIndex+1).padStart(3,'0')}_${p.tag.replace(/[^a-zA-Z0-9_-]/g,'_')}.jpg`;
+  a.href = p.dataUrl; a.click();
 });
+
 document.getElementById('modal-del').addEventListener('click', () => {
   if (selectedIndex === null) return;
-  photos.splice(selectedIndex, 1);
+  visits[activeVisitId].photos.splice(selectedIndex, 1);
   saveToStorage();
   document.getElementById('modal').classList.remove('open');
   renderGallery();
   showToast('Foto removida');
 });
 
-// ─── DOWNLOAD ──────────────────────────────────────────────────────
-function downloadOne(p, i) {
-  const a = document.createElement('a');
-  const tag = p.tag.replace(/[^a-zA-Z0-9_-]/g, '_');
-  a.download = `geofoto_${String(i+1).padStart(3,'0')}_${tag}.jpg`;
-  a.href = p.dataUrl;
-  a.click();
+// ─── EXPORT MODAL ──────────────────────────────────────────────────
+function openExportModal(type) {
+  exportType = type;
+  const titles = { csv: 'Exportar CSV', kml: 'Exportar KML', photos: 'Baixar Fotos' };
+  document.getElementById('export-title').textContent = titles[type];
+  const list = document.getElementById('export-visit-list');
+  list.innerHTML = '';
+  Object.values(visits).forEach(v => {
+    const item = document.createElement('div');
+    item.className = 'export-visit-item';
+    item.innerHTML = `
+      <input type="checkbox" id="chk_${v.id}" value="${v.id}" checked>
+      <span>${v.name}</span>
+      <small>${v.photos.length} foto(s) · ${v.date}</small>`;
+    list.appendChild(item);
+  });
+  document.getElementById('export-modal').classList.add('open');
 }
 
-document.getElementById('btn-dl-all').addEventListener('click', () => {
-  if (photos.length === 0) { showToast('Nenhuma foto para baixar'); return; }
-  photos.forEach((p, i) => setTimeout(() => downloadOne(p, i), i * 300));
+document.getElementById('export-cancel').addEventListener('click', () => {
+  document.getElementById('export-modal').classList.remove('open');
 });
 
+document.getElementById('export-confirm').addEventListener('click', () => {
+  const checked = Array.from(document.querySelectorAll('#export-visit-list input:checked')).map(c => c.value);
+  if (checked.length === 0) { showToast('Selecione ao menos uma visita'); return; }
+  const selectedPhotos = checked.flatMap(id => visits[id] ? visits[id].photos : []);
+  if (selectedPhotos.length === 0) { showToast('Nenhuma foto nas visitas selecionadas'); return; }
+  document.getElementById('export-modal').classList.remove('open');
+  if (exportType === 'csv') doExportCSV(selectedPhotos, checked.map(id => visits[id].name));
+  else if (exportType === 'kml') doExportKML(selectedPhotos, checked.map(id => visits[id].name));
+  else if (exportType === 'photos') selectedPhotos.forEach((p, i) => setTimeout(() => {
+    const a = document.createElement('a');
+    a.download = `geofoto_${String(i+1).padStart(3,'0')}_${p.tag.replace(/[^a-zA-Z0-9_-]/g,'_')}.jpg`;
+    a.href = p.dataUrl; a.click();
+  }, i * 300));
+});
+
+document.getElementById('btn-dl-all').addEventListener('click', () => {
+  if (Object.keys(visits).length === 0) { showToast('Nenhuma visita criada'); return; }
+  openExportModal('photos');
+});
 document.getElementById('btn-dl-csv').addEventListener('click', () => {
-  if (photos.length === 0) { showToast('Nenhum registro para exportar'); return; }
-  const header = 'Nr,TAG,Datum,Latitude_Dec,Longitude_Dec,Lat_GMS,Lon_GMS,UTM_Fuso,UTM_E(m),UTM_N(m),Altitude(m),Precisao(m),Data_Hora';
+  if (Object.keys(visits).length === 0) { showToast('Nenhuma visita criada'); return; }
+  openExportModal('csv');
+});
+document.getElementById('btn-dl-kml').addEventListener('click', () => {
+  if (Object.keys(visits).length === 0) { showToast('Nenhuma visita criada'); return; }
+  openExportModal('kml');
+});
+
+// ─── CSV ───────────────────────────────────────────────────────────
+function doExportCSV(photos, visitNames) {
+  const header = 'Nr,Visita,TAG,Datum,Latitude_Dec,Longitude_Dec,Lat_GMS,Lon_GMS,UTM_Fuso,UTM_E(m),UTM_N(m),Altitude(m),Precisao(m),Data_Hora';
   const rows = photos.map((p, i) =>
-    `${i+1},"${p.tag}","${p.datum||'SIRGAS 2000 / WGS 84'}",${p.lat||''},${p.lon||''},"${p.latGMS||''}","${p.lonGMS||''}","${p.utmZone||''}",${p.utmE||''},${p.utmN||''},${p.alt||''},${p.acc||''},"${p.dt}"`
+    `${i+1},"${p.visitName}","${p.tag}","${p.datum||'SIRGAS 2000 / WGS 84'}",${p.lat||''},${p.lon||''},"${p.latGMS||''}","${p.lonGMS||''}","${p.utmZone||''}",${p.utmE||''},${p.utmN||''},${p.alt||''},${p.acc||''},"${p.dt}"`
   );
   const csv = [header, ...rows].join('\n');
   const blob = new Blob(['\uFEFF'+csv], {type: 'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'visita_tecnica_pontos.csv'; a.click();
+  a.href = url; a.download = `visita_tecnica_${new Date().toISOString().slice(0,10)}.csv`; a.click();
   URL.revokeObjectURL(url);
   showToast('CSV exportado ✓');
-});
+}
 
-// ─── KML EXPORT ────────────────────────────────────────────────────
-document.getElementById('btn-dl-kml').addEventListener('click', () => {
-  if (photos.length === 0) { showToast('Nenhum registro para exportar'); return; }
+// ─── KML ───────────────────────────────────────────────────────────
+function doExportKML(photos, visitNames) {
   const today = new Date().toISOString().slice(0,10);
   const placemarks = photos.map((p, i) => {
     if (!p.lat || !p.lon) return '';
     const num = String(i+1).padStart(3,'0');
     const desc = [
+      `<b>Visita:</b> ${p.visitName}`,
       `<b>TAG:</b> ${p.tag}`,
-      `<b>Datum:</b> ${p.datum || 'SIRGAS 2000 / WGS 84'}`,
+      `<b>Datum:</b> ${p.datum||'SIRGAS 2000 / WGS 84'}`,
       `<b>Latitude:</b> ${p.lat} (${p.latGMS||''})`,
       `<b>Longitude:</b> ${p.lon} (${p.lonGMS||''})`,
-      `<b>UTM:</b> ${p.utm || 'N/D'}`,
-      `<b>Altitude:</b> ${p.alt || '—'} m`,
-      `<b>Precisao:</b> +-${p.acc || '—'} m`,
+      `<b>UTM:</b> ${p.utm||'N/D'}`,
+      `<b>Altitude:</b> ${p.alt||'—'} m`,
+      `<b>Precisao:</b> +-${p.acc||'—'} m`,
       `<b>Data/Hora:</b> ${p.dt}`
     ].join('<br>');
     return `
@@ -888,9 +1100,8 @@ document.getElementById('btn-dl-kml').addEventListener('click', () => {
         </IconStyle>
         <LabelStyle><scale>0.85</scale></LabelStyle>
       </Style>
-      <Point>
-        <altitudeMode>clampToGround</altitudeMode>
-        <coordinates>${p.lon},${p.lat},${p.alt || 0}</coordinates>
+      <Point><altitudeMode>clampToGround</altitudeMode>
+        <coordinates>${p.lon},${p.lat},${p.alt||0}</coordinates>
       </Point>
     </Placemark>`;
   }).join('\n');
@@ -899,10 +1110,8 @@ document.getElementById('btn-dl-kml').addEventListener('click', () => {
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>Visita Tecnica VALE – ${today}</name>
-    <description>Datum: SIRGAS 2000 / WGS 84 – Gerado em ${today}</description>
-    <Folder>
-      <name>Pontos de Registro</name>${placemarks}
-    </Folder>
+    <description>Datum: SIRGAS 2000 / WGS 84 – Visitas: ${visitNames.join(', ')}</description>
+    <Folder><name>Pontos de Registro</name>${placemarks}</Folder>
   </Document>
 </kml>`;
 
@@ -912,7 +1121,7 @@ document.getElementById('btn-dl-kml').addEventListener('click', () => {
   a.href = url; a.download = `visita_tecnica_${today}.kml`; a.click();
   URL.revokeObjectURL(url);
   showToast('KML exportado ✓');
-});
+}
 
 function escXml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -923,7 +1132,7 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2200);
+  setTimeout(() => t.classList.remove('show'), 2500);
 }
 
 // ─── INIT ──────────────────────────────────────────────────────────
