@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a2332">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GeoFoto">
+<link rel="manifest" href="manifest.json">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <title>GeoFoto – Visita Técnica</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;900&display=swap');
@@ -671,14 +678,13 @@
 <script>
 // ─── STATE ─────────────────────────────────────────────────────────
 let gps = { lat: null, lon: null, alt: null, acc: null };
-let visits = {};       // { visitId: { name, date, photos: [] } }
+let visits = {};
 let activeVisitId = null;
 let stream = null;
 let facingMode = 'environment';
 let selectedIndex = null;
-let exportType = null; // 'csv' | 'kml' | 'photos'
-
-const STORAGE_KEY = 'geofoto_visits_v2';
+let exportType = null;
+const STORAGE_KEY = 'geofoto_visits_v3';
 
 // ─── VISIT MANAGEMENT ──────────────────────────────────────────────
 function createVisit(name) {
@@ -690,15 +696,8 @@ function createVisit(name) {
   renderGallery();
   return id;
 }
-
-function getActiveVisit() {
-  return visits[activeVisitId] || null;
-}
-
-function getActivePhotos() {
-  const v = getActiveVisit();
-  return v ? v.photos : [];
-}
+function getActiveVisit() { return visits[activeVisitId] || null; }
+function getActivePhotos() { const v = getActiveVisit(); return v ? v.photos : []; }
 
 function renderVisitSelector() {
   const sel = document.getElementById('visit-select');
@@ -730,7 +729,7 @@ document.getElementById('visit-select').addEventListener('change', (e) => {
 });
 
 document.getElementById('btn-new-visit').addEventListener('click', () => {
-  const name = prompt('Nome da visita:\n(ex: Visita 1 – Mina Carajás – 01/06/2026)');
+  const name = prompt('Nome da visita:\n(ex: Visita 1 – Mina Carajás – 02/06/2026)');
   if (!name || !name.trim()) return;
   createVisit(name.trim());
   showToast(`Visita "${name.trim()}" criada ✓`);
@@ -738,18 +737,11 @@ document.getElementById('btn-new-visit').addEventListener('click', () => {
 
 // ─── GPS ───────────────────────────────────────────────────────────
 function startGPS() {
-  if (!navigator.geolocation) {
-    document.getElementById('gps-status').textContent = 'GPS não suportado.';
-    return;
-  }
-  navigator.geolocation.watchPosition(onGPS, onGPSError, {
-    enableHighAccuracy: true, maximumAge: 3000, timeout: 15000
-  });
+  if (!navigator.geolocation) { document.getElementById('gps-status').textContent = 'GPS não suportado.'; return; }
+  navigator.geolocation.watchPosition(onGPS, onGPSError, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
 }
-
 function onGPS(pos) {
-  gps.lat = pos.coords.latitude;
-  gps.lon = pos.coords.longitude;
+  gps.lat = pos.coords.latitude; gps.lon = pos.coords.longitude;
   gps.alt = pos.coords.altitude ? pos.coords.altitude.toFixed(1) : '—';
   gps.acc = pos.coords.accuracy ? pos.coords.accuracy.toFixed(1) : '—';
   document.getElementById('gps-dot').classList.add('active');
@@ -762,11 +754,7 @@ function onGPS(pos) {
   document.getElementById('disp-utm').textContent = `${utm.zone}${utm.hem} E:${utm.easting} N:${utm.northing}`;
   updateLiveStamp();
 }
-
-function onGPSError(err) {
-  document.getElementById('gps-status').textContent = 'Erro GPS: ' + err.message;
-}
-
+function onGPSError(err) { document.getElementById('gps-status').textContent = 'Erro GPS: ' + err.message; }
 function updateLiveStamp() {
   const el = document.getElementById('live-stamp');
   const tag = document.getElementById('tag-input').value || '—';
@@ -775,51 +763,55 @@ function updateLiveStamp() {
   if (gps.lat) {
     const utm = latLonToUTM(gps.lat, gps.lon);
     el.innerHTML = `${tag}<br>LAT ${gps.lat.toFixed(6)}  LON ${gps.lon.toFixed(6)}<br>UTM ${utm.zone}${utm.hem} E:${utm.easting} N:${utm.northing}<br>${dt}`;
-  } else {
-    el.textContent = 'Aguardando GPS...';
-  }
+  } else { el.textContent = 'Aguardando GPS...'; }
 }
 document.getElementById('tag-input').addEventListener('input', updateLiveStamp);
 
-// ─── UTM ───────────────────────────────────────────────────────────
+// ─── UTM / GMS ─────────────────────────────────────────────────────
 function latLonToUTM(lat, lon) {
-  const a = 6378137.0, f = 1/298.257223563;
-  const b = a*(1-f), e2 = 1-(b*b)/(a*a);
-  const k0 = 0.9996;
-  const zone = Math.floor((lon+180)/6)+1;
-  const lon0 = (zone-1)*6-180+3;
+  const a = 6378137.0, f = 1/298.257223563, b = a*(1-f), e2 = 1-(b*b)/(a*a), k0 = 0.9996;
+  const zone = Math.floor((lon+180)/6)+1, lon0 = (zone-1)*6-180+3;
   const latR = lat*Math.PI/180, lonR = lon*Math.PI/180, lon0R = lon0*Math.PI/180;
   const N = a/Math.sqrt(1-e2*Math.sin(latR)**2);
-  const T = Math.tan(latR)**2, C = (e2/(1-e2))*Math.cos(latR)**2, A = Math.cos(latR)*(lonR-lon0R);
-  const e2p = e2/(1-e2);
-  const M = a*((1-e2/4-3*e2**2/64-5*e2**3/256)*latR
-    -(3*e2/8+3*e2**2/32+45*e2**3/1024)*Math.sin(2*latR)
-    +(15*e2**2/256+45*e2**3/1024)*Math.sin(4*latR)
-    -(35*e2**3/3072)*Math.sin(6*latR));
+  const T = Math.tan(latR)**2, C = (e2/(1-e2))*Math.cos(latR)**2, A = Math.cos(latR)*(lonR-lon0R), e2p = e2/(1-e2);
+  const M = a*((1-e2/4-3*e2**2/64-5*e2**3/256)*latR-(3*e2/8+3*e2**2/32+45*e2**3/1024)*Math.sin(2*latR)+(15*e2**2/256+45*e2**3/1024)*Math.sin(4*latR)-(35*e2**3/3072)*Math.sin(6*latR));
   const x = k0*N*(A+(1-T+C)*A**3/6+(5-18*T+T**2+72*C-58*e2p)*A**5/120)+500000;
   const y = k0*(M+N*Math.tan(latR)*(A**2/2+(5-T+9*C+4*C**2)*A**4/24+(61-58*T+T**2+600*C-330*e2p)*A**6/720));
-  return { zone, hem: lat >= 0 ? 'N' : 'S', easting: Math.round(x), northing: Math.round(lat >= 0 ? y : y+10000000) };
+  return { zone, hem: lat>=0?'N':'S', easting: Math.round(x), northing: Math.round(lat>=0?y:y+10000000) };
 }
-
 function decToGMS(dec, isLat) {
-  const abs = Math.abs(dec);
-  const d = Math.floor(abs);
-  const mFull = (abs - d) * 60;
-  const m = Math.floor(mFull);
-  const s = ((mFull - m) * 60).toFixed(2);
-  const dir = isLat ? (dec >= 0 ? 'N' : 'S') : (dec >= 0 ? 'L' : 'O');
+  const abs = Math.abs(dec), d = Math.floor(abs), mFull = (abs-d)*60, m = Math.floor(mFull), s = ((mFull-m)*60).toFixed(2);
+  const dir = isLat ? (dec>=0?'N':'S') : (dec>=0?'L':'O');
   return `${d}°${String(m).padStart(2,'0')}'${String(s).padStart(5,'0')}"${dir}`;
 }
 
-// ─── STORAGE ───────────────────────────────────────────────────────
-function saveToStorage() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ visits, activeVisitId }));
-  } catch(e) {
-    showToast('⚠️ Armazenamento cheio! Exporte e limpe.');
-  }
+// ─── TIMESTAMP FILENAME ────────────────────────────────────────────
+function makeFilename(tag, index) {
+  const now = new Date();
+  const ts = now.getFullYear().toString()
+    + String(now.getMonth()+1).padStart(2,'0')
+    + String(now.getDate()).padStart(2,'0')
+    + '_' + String(now.getHours()).padStart(2,'0')
+    + String(now.getMinutes()).padStart(2,'0')
+    + String(now.getSeconds()).padStart(2,'0');
+  const safeTag = tag.replace(/[^a-zA-Z0-9]/g,'_').substring(0,20);
+  return `geofoto_${String(index).padStart(3,'0')}_${safeTag}_${ts}.jpg`;
 }
 
+// ─── STORAGE (metadados apenas, sem imagem) ────────────────────────
+function saveToStorage() {
+  try {
+    // Strip dataUrl/dataUrlHQ before saving to stay within localStorage limits
+    const lean = {};
+    for (const [id, v] of Object.entries(visits)) {
+      lean[id] = { ...v, photos: v.photos.map(p => {
+        const { dataUrl, dataUrlHQ, ...meta } = p;
+        return meta;
+      })};
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ visits: lean, activeVisitId }));
+  } catch(e) { showToast('⚠️ Erro ao salvar metadados.'); }
+}
 function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -827,12 +819,11 @@ function loadFromStorage() {
       const data = JSON.parse(raw);
       visits = data.visits || {};
       activeVisitId = data.activeVisitId || null;
-      // Ensure activeVisitId is valid
       if (activeVisitId && !visits[activeVisitId]) activeVisitId = Object.keys(visits)[0] || null;
       renderVisitSelector();
       renderGallery();
-      const total = Object.values(visits).reduce((s, v) => s + v.photos.length, 0);
-      if (total > 0) showToast(`${Object.keys(visits).length} visita(s) restaurada(s) ✓`);
+      const total = Object.values(visits).reduce((s,v) => s+v.photos.length, 0);
+      if (total > 0) showToast(`${Object.keys(visits).length} visita(s) restaurada(s) – ${total} ponto(s) ✓`);
     }
   } catch(e) { visits = {}; activeVisitId = null; }
 }
@@ -841,19 +832,11 @@ function loadFromStorage() {
 async function startCamera() {
   if (stream) stream.getTracks().forEach(t => t.stop());
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false
-    });
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode, width:{ideal:1920}, height:{ideal:1080} }, audio: false });
     document.getElementById('video-preview').srcObject = stream;
-  } catch(e) {
-    document.getElementById('video-preview').style.display = 'none';
-  }
+  } catch(e) { document.getElementById('video-preview').style.display = 'none'; }
 }
-
-document.getElementById('btn-flip').addEventListener('click', () => {
-  facingMode = facingMode === 'environment' ? 'user' : 'environment';
-  startCamera();
-});
+document.getElementById('btn-flip').addEventListener('click', () => { facingMode = facingMode==='environment'?'user':'environment'; startCamera(); });
 
 // ─── CAPTURE ───────────────────────────────────────────────────────
 document.getElementById('btn-capture').addEventListener('click', () => {
@@ -861,25 +844,20 @@ document.getElementById('btn-capture').addEventListener('click', () => {
   const video = document.getElementById('video-preview');
   if (!video.srcObject) { showToast('Câmera não disponível'); return; }
   const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth || 1280;
-  canvas.height = video.videoHeight || 720;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0);
+  canvas.width = video.videoWidth || 1280; canvas.height = video.videoHeight || 720;
+  const ctx = canvas.getContext('2d'); ctx.drawImage(video, 0, 0);
   addStampAndSave(canvas, ctx);
 });
 
 document.getElementById('file-input').addEventListener('change', (e) => {
   if (!activeVisitId) { showToast('Crie uma visita primeiro!'); return; }
   Array.from(e.target.files).forEach(file => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
+    const img = new Image(), url = URL.createObjectURL(file);
     img.onload = () => {
       const canvas = document.createElement('canvas');
       canvas.width = img.width; canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      addStampAndSave(canvas, ctx);
-      URL.revokeObjectURL(url);
+      const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0);
+      addStampAndSave(canvas, ctx); URL.revokeObjectURL(url);
     };
     img.src = url;
   });
@@ -894,15 +872,16 @@ function addStampAndSave(canvas, ctx) {
   const visitName = visit ? visit.name : '—';
   const now = new Date();
   const dt = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR');
+  const photoIndex = (visit ? visit.photos.length : 0) + 1;
+  const fname = makeFilename(tag, photoIndex);
 
   let utm = null, latGMS = null, lonGMS = null, lines = [];
   if (gps.lat !== null) {
     utm = latLonToUTM(gps.lat, gps.lon);
-    latGMS = decToGMS(gps.lat, true);
-    lonGMS = decToGMS(gps.lon, false);
+    latGMS = decToGMS(gps.lat, true); lonGMS = decToGMS(gps.lon, false);
     lines = [
       `VALE S.A. – ${visitName}`,
-      `TAG: ${tag}`,
+      `TAG: ${tag}  |  ${fname}`,
       `LAT: ${gps.lat.toFixed(6)}  LON: ${gps.lon.toFixed(6)}`,
       `GMS: ${latGMS}  ${lonGMS}`,
       `UTM SIRGAS2000: ${utm.zone}${utm.hem}  E:${utm.easting}  N:${utm.northing}`,
@@ -910,42 +889,43 @@ function addStampAndSave(canvas, ctx) {
       `DATA/HORA: ${dt}`
     ];
   } else {
-    lines = [
-      `VALE S.A. – ${visitName}`,
-      `TAG: ${tag}`,
-      `GPS NAO DISPONIVEL`,
-      `DATA/HORA: ${dt}`
-    ];
+    lines = [`VALE S.A. – ${visitName}`, `TAG: ${tag}  |  ${fname}`, `GPS NAO DISPONIVEL`, `DATA/HORA: ${dt}`];
   }
 
-  const fs = Math.max(14, Math.round(w * 0.018));
+  const fs = Math.max(12, Math.round(w * 0.016));
   ctx.font = `bold ${fs}px monospace`;
-  const lh = fs * 1.55, pad = fs * 0.7;
-  const bh = lines.length * lh + pad * 2;
-  ctx.fillStyle = 'rgba(10,18,28,0.82)';
-  ctx.fillRect(0, h - bh, w, bh);
-  ctx.fillStyle = '#c8860a';
-  ctx.fillRect(0, h - bh, w, 3);
+  const lh = fs*1.55, pad = fs*0.7, bh = lines.length*lh+pad*2;
+  ctx.fillStyle = 'rgba(10,18,28,0.82)'; ctx.fillRect(0, h-bh, w, bh);
+  ctx.fillStyle = '#c8860a'; ctx.fillRect(0, h-bh, w, 3);
   lines.forEach((line, i) => {
-    ctx.fillStyle = i === 0 ? '#f0a820' : (i === 2 || i === 3 ? '#a0c4e0' : '#dce8f0');
-    ctx.fillText(line, pad, h - bh + pad + lh * i + fs);
+    ctx.fillStyle = i===0 ? '#f0a820' : (i===2||i===3 ? '#a0c4e0' : '#dce8f0');
+    ctx.fillText(line, pad, h-bh+pad+lh*i+fs);
   });
 
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  // Auto-download high quality
+  const dataUrlHQ = canvas.toDataURL('image/jpeg', 0.92);
+  const a = document.createElement('a'); a.download = fname; a.href = dataUrlHQ; a.click();
+
+  // Save thumbnail for gallery preview
+  const thumbCanvas = document.createElement('canvas');
+  const tw = Math.min(w, 600), th = Math.round(h * tw/w);
+  thumbCanvas.width = tw; thumbCanvas.height = th;
+  thumbCanvas.getContext('2d').drawImage(canvas, 0, 0, tw, th);
+  const thumb = thumbCanvas.toDataURL('image/jpeg', 0.5);
+
   const record = {
-    dataUrl, tag, visitId: activeVisitId, visitName,
+    fname, tag, visitId: activeVisitId, visitName,
     lat: gps.lat, lon: gps.lon, latGMS, lonGMS,
     alt: gps.alt, acc: gps.acc,
     utm: utm ? `${utm.zone}${utm.hem} E:${utm.easting} N:${utm.northing}` : null,
     utmZone: utm ? `${utm.zone}${utm.hem}` : null,
-    utmE: utm ? utm.easting : null,
-    utmN: utm ? utm.northing : null,
-    datum: 'SIRGAS 2000 / WGS 84', dt
+    utmE: utm ? utm.easting : null, utmN: utm ? utm.northing : null,
+    datum: 'SIRGAS 2000 / WGS 84', dt, thumb
   };
   visits[activeVisitId].photos.push(record);
   saveToStorage();
   renderGallery();
-  showToast('Foto salva ✓');
+  showToast(`📥 ${fname}`);
 }
 
 // ─── GALLERY ───────────────────────────────────────────────────────
@@ -953,16 +933,14 @@ function renderGallery() {
   const g = document.getElementById('gallery');
   const photos = getActivePhotos();
   document.getElementById('count').textContent = photos.length;
-  if (photos.length === 0) {
-    g.innerHTML = '<div class="empty">Nenhuma foto nesta visita.</div>';
-    return;
-  }
+  if (photos.length === 0) { g.innerHTML = '<div class="empty">Nenhuma foto nesta visita.</div>'; return; }
   g.innerHTML = '';
   photos.forEach((p, i) => {
     const card = document.createElement('div');
     card.className = 'photo-card';
+    const imgSrc = p.thumb || '';
     card.innerHTML = `
-      <img src="${p.dataUrl}" alt="foto ${i+1}" loading="lazy">
+      ${imgSrc ? `<img src="${imgSrc}" alt="foto ${i+1}" loading="lazy">` : `<div style="aspect-ratio:4/3;background:#1a2332;display:flex;align-items:center;justify-content:center;font-size:2rem;">📷</div>`}
       <div class="photo-meta">
         <div class="photo-tag">${p.tag}</div>
         <div class="photo-coords">${p.lat ? `${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}` : 'GPS N/D'}</div>
@@ -977,8 +955,11 @@ function renderGallery() {
 function openModal(i) {
   selectedIndex = i;
   const p = getActivePhotos()[i];
-  document.getElementById('modal-img').src = p.dataUrl;
+  const modalImg = document.getElementById('modal-img');
+  if (p.thumb) { modalImg.src = p.thumb; modalImg.style.display = 'block'; }
+  else { modalImg.style.display = 'none'; }
   document.getElementById('modal-info').innerHTML = `
+    <strong>Arquivo:</strong> ${p.fname}<br>
     <strong>Visita:</strong> ${p.visitName}<br>
     <strong>TAG:</strong> ${p.tag}<br>
     <strong>Datum:</strong> ${p.datum||'SIRGAS 2000 / WGS 84'}<br>
@@ -989,100 +970,123 @@ function openModal(i) {
     <strong>DATA/HORA:</strong> ${p.dt}`;
   document.getElementById('modal').classList.add('open');
 }
-
 document.getElementById('modal-close').addEventListener('click', () => document.getElementById('modal').classList.remove('open'));
-document.getElementById('modal').addEventListener('click', (e) => { if (e.target === document.getElementById('modal')) document.getElementById('modal').classList.remove('open'); });
-
+document.getElementById('modal').addEventListener('click', (e) => { if (e.target===document.getElementById('modal')) document.getElementById('modal').classList.remove('open'); });
 document.getElementById('modal-dl').addEventListener('click', () => {
-  if (selectedIndex === null) return;
-  const p = getActivePhotos()[selectedIndex];
-  const a = document.createElement('a');
-  a.download = `geofoto_${String(selectedIndex+1).padStart(3,'0')}_${p.tag.replace(/[^a-zA-Z0-9_-]/g,'_')}.jpg`;
-  a.href = p.dataUrl; a.click();
+  showToast('Foto já foi baixada automaticamente na captura');
 });
-
 document.getElementById('modal-del').addEventListener('click', () => {
-  if (selectedIndex === null) return;
+  if (selectedIndex===null) return;
   visits[activeVisitId].photos.splice(selectedIndex, 1);
-  saveToStorage();
-  document.getElementById('modal').classList.remove('open');
-  renderGallery();
-  showToast('Foto removida');
+  saveToStorage(); document.getElementById('modal').classList.remove('open');
+  renderGallery(); showToast('Registro removido');
 });
 
 // ─── EXPORT MODAL ──────────────────────────────────────────────────
 function openExportModal(type) {
   exportType = type;
-  const titles = { csv: 'Exportar CSV', kml: 'Exportar KML', photos: 'Baixar Fotos' };
+  const titles = { csv:'Exportar CSV', kml:'Exportar KMZ', photos:'Ver registros' };
   document.getElementById('export-title').textContent = titles[type];
   const list = document.getElementById('export-visit-list');
   list.innerHTML = '';
   Object.values(visits).forEach(v => {
-    const item = document.createElement('div');
-    item.className = 'export-visit-item';
-    item.innerHTML = `
-      <input type="checkbox" id="chk_${v.id}" value="${v.id}" checked>
-      <span>${v.name}</span>
-      <small>${v.photos.length} foto(s) · ${v.date}</small>`;
+    const item = document.createElement('div'); item.className = 'export-visit-item';
+    item.innerHTML = `<input type="checkbox" id="chk_${v.id}" value="${v.id}" checked>
+      <span>${v.name}</span><small>${v.photos.length} ponto(s) · ${v.date}</small>`;
     list.appendChild(item);
   });
   document.getElementById('export-modal').classList.add('open');
 }
-
-document.getElementById('export-cancel').addEventListener('click', () => {
-  document.getElementById('export-modal').classList.remove('open');
-});
-
+document.getElementById('export-cancel').addEventListener('click', () => document.getElementById('export-modal').classList.remove('open'));
 document.getElementById('export-confirm').addEventListener('click', () => {
   const checked = Array.from(document.querySelectorAll('#export-visit-list input:checked')).map(c => c.value);
-  if (checked.length === 0) { showToast('Selecione ao menos uma visita'); return; }
+  if (!checked.length) { showToast('Selecione ao menos uma visita'); return; }
   const selectedPhotos = checked.flatMap(id => visits[id] ? visits[id].photos : []);
-  if (selectedPhotos.length === 0) { showToast('Nenhuma foto nas visitas selecionadas'); return; }
+  if (!selectedPhotos.length) { showToast('Nenhum registro nas visitas selecionadas'); return; }
   document.getElementById('export-modal').classList.remove('open');
-  if (exportType === 'csv') doExportCSV(selectedPhotos, checked.map(id => visits[id].name));
-  else if (exportType === 'kml') doExportKML(selectedPhotos, checked.map(id => visits[id].name));
-  else if (exportType === 'photos') selectedPhotos.forEach((p, i) => setTimeout(() => {
-    const a = document.createElement('a');
-    a.download = `geofoto_${String(i+1).padStart(3,'0')}_${p.tag.replace(/[^a-zA-Z0-9_-]/g,'_')}.jpg`;
-    a.href = p.dataUrl; a.click();
-  }, i * 300));
+  if (exportType==='csv') doExportCSV(selectedPhotos, checked.map(id => visits[id].name));
+  else if (exportType==='kml') openKMZImport(selectedPhotos, checked.map(id => visits[id].name));
+  else if (exportType==='photos') showToast('Fotos já foram baixadas automaticamente');
 });
 
-document.getElementById('btn-dl-all').addEventListener('click', () => {
-  if (Object.keys(visits).length === 0) { showToast('Nenhuma visita criada'); return; }
-  openExportModal('photos');
-});
-document.getElementById('btn-dl-csv').addEventListener('click', () => {
-  if (Object.keys(visits).length === 0) { showToast('Nenhuma visita criada'); return; }
-  openExportModal('csv');
-});
-document.getElementById('btn-dl-kml').addEventListener('click', () => {
-  if (Object.keys(visits).length === 0) { showToast('Nenhuma visita criada'); return; }
-  openExportModal('kml');
-});
+document.getElementById('btn-dl-all').addEventListener('click', () => { if (!Object.keys(visits).length) { showToast('Nenhuma visita criada'); return; } openExportModal('photos'); });
+document.getElementById('btn-dl-csv').addEventListener('click', () => { if (!Object.keys(visits).length) { showToast('Nenhuma visita criada'); return; } openExportModal('csv'); });
+document.getElementById('btn-dl-kml').addEventListener('click', () => { if (!Object.keys(visits).length) { showToast('Nenhuma visita criada'); return; } openExportModal('kml'); });
 
 // ─── CSV ───────────────────────────────────────────────────────────
 function doExportCSV(photos, visitNames) {
-  const header = 'Nr,Visita,TAG,Datum,Latitude_Dec,Longitude_Dec,Lat_GMS,Lon_GMS,UTM_Fuso,UTM_E(m),UTM_N(m),Altitude(m),Precisao(m),Data_Hora';
-  const rows = photos.map((p, i) =>
-    `${i+1},"${p.visitName}","${p.tag}","${p.datum||'SIRGAS 2000 / WGS 84'}",${p.lat||''},${p.lon||''},"${p.latGMS||''}","${p.lonGMS||''}","${p.utmZone||''}",${p.utmE||''},${p.utmN||''},${p.alt||''},${p.acc||''},"${p.dt}"`
+  const header = 'Nr,Arquivo,Visita,TAG,Datum,Latitude_Dec,Longitude_Dec,Lat_GMS,Lon_GMS,UTM_Fuso,UTM_E(m),UTM_N(m),Altitude(m),Precisao(m),Data_Hora';
+  const rows = photos.map((p,i) =>
+    `${i+1},"${p.fname}","${p.visitName}","${p.tag}","${p.datum||'SIRGAS 2000 / WGS 84'}",${p.lat||''},${p.lon||''},"${p.latGMS||''}","${p.lonGMS||''}","${p.utmZone||''}",${p.utmE||''},${p.utmN||''},${p.alt||''},${p.acc||''},"${p.dt}"`
   );
-  const csv = [header, ...rows].join('\n');
-  const blob = new Blob(['\uFEFF'+csv], {type: 'text/csv;charset=utf-8'});
+  const csv = [header,...rows].join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `visita_tecnica_${new Date().toISOString().slice(0,10)}.csv`; a.click();
-  URL.revokeObjectURL(url);
-  showToast('CSV exportado ✓');
+  const a = document.createElement('a'); a.href=url; a.download=`visita_tecnica_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  URL.revokeObjectURL(url); showToast('CSV exportado ✓');
 }
 
-// ─── KML ───────────────────────────────────────────────────────────
-function doExportKML(photos, visitNames) {
+// ─── KMZ IMPORT MODAL ──────────────────────────────────────────────
+let pendingKMZPhotos = null, pendingKMZVisitNames = null;
+
+function openKMZImport(photos, visitNames) {
+  pendingKMZPhotos = photos; pendingKMZVisitNames = visitNames;
+  const missing = photos.filter(p => !p.thumb);
+  if (photos.length === 0) { showToast('Nenhum ponto para exportar'); return; }
+
+  // Build import UI
+  const modal = document.getElementById('export-modal');
+  const title = document.getElementById('export-title');
+  const list = document.getElementById('export-visit-list');
+  title.textContent = `Importar Fotos para KMZ (${photos.length} pontos)`;
+  list.innerHTML = `
+    <p style="font-family:var(--mono);font-size:0.72rem;color:var(--dust);margin-bottom:8px;line-height:1.6">
+      Selecione as fotos baixadas do celular.<br>
+      O app identifica cada foto pelo nome do arquivo.<br>
+      <span style="color:var(--ore-light)">Fotos não encontradas ficam sem imagem no KMZ.</span>
+    </p>
+    <label class="file-label" for="kmz-import-input" style="margin:0">📂 Selecionar fotos (múltiplas)</label>
+    <input type="file" id="kmz-import-input" accept="image/*" multiple style="display:none">
+    <div id="kmz-match-status" style="font-family:var(--mono);font-size:0.68rem;color:var(--dust);margin-top:8px"></div>`;
+  modal.classList.add('open');
+  document.getElementById('export-confirm').textContent = 'Gerar KMZ';
+
+  document.getElementById('kmz-import-input').addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    const matched = files.filter(f => photos.some(p => p.fname === f.name));
+    const status = document.getElementById('kmz-match-status');
+    status.innerHTML = `✓ ${matched.length} de ${photos.length} fotos identificadas pelo nome`;
+    status.style.color = matched.length === photos.length ? 'var(--green)' : 'var(--ore-light)';
+    // Store files on records
+    files.forEach(file => {
+      const p = photos.find(pt => pt.fname === file.name);
+      if (p) p._file = file;
+    });
+  });
+}
+
+// override confirm button for KMZ
+document.getElementById('export-confirm').addEventListener('click', async () => {
+  if (exportType !== 'kml') return;
+  document.getElementById('export-modal').classList.remove('open');
+  document.getElementById('export-confirm').textContent = 'Exportar';
+  await doExportKMZ(pendingKMZPhotos, pendingKMZVisitNames);
+});
+
+// ─── KMZ ───────────────────────────────────────────────────────────
+async function doExportKMZ(photos, visitNames) {
   const today = new Date().toISOString().slice(0,10);
-  const placemarks = photos.map((p, i) => {
+  showToast('Gerando KMZ...');
+
+  const placemarks = await Promise.all(photos.map(async (p, i) => {
     if (!p.lat || !p.lon) return '';
     const num = String(i+1).padStart(3,'0');
+    let imgTag = '';
+    if (p._file) {
+      imgTag = `<br><img src="files/${p.fname}" width="400"/>`;
+    }
     const desc = [
+      `<b>Arquivo:</b> ${p.fname}`,
       `<b>Visita:</b> ${p.visitName}`,
       `<b>TAG:</b> ${p.tag}`,
       `<b>Datum:</b> ${p.datum||'SIRGAS 2000 / WGS 84'}`,
@@ -1092,7 +1096,8 @@ function doExportKML(photos, visitNames) {
       `<b>Altitude:</b> ${p.alt||'—'} m`,
       `<b>Precisao:</b> +-${p.acc||'—'} m`,
       `<b>Data/Hora:</b> ${p.dt}`
-    ].join('<br>');
+    ].join('<br>') + imgTag;
+
     return `
     <Placemark>
       <name>${num} – ${escXml(p.tag)}</name>
@@ -1100,43 +1105,51 @@ function doExportKML(photos, visitNames) {
       <Style>
         <IconStyle><color>ff0a86c8</color><scale>1.1</scale>
           <Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon>
-        </IconStyle>
-        <LabelStyle><scale>0.85</scale></LabelStyle>
+        </IconStyle><LabelStyle><scale>0.85</scale></LabelStyle>
       </Style>
       <Point><altitudeMode>clampToGround</altitudeMode>
         <coordinates>${p.lon},${p.lat},${p.alt||0}</coordinates>
       </Point>
     </Placemark>`;
-  }).join('\n');
+  }));
 
   const kml = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>Visita Tecnica VALE – ${today}</name>
     <description>Datum: SIRGAS 2000 / WGS 84 – Visitas: ${visitNames.join(', ')}</description>
-    <Folder><name>Pontos de Registro</name>${placemarks}</Folder>
+    <Folder><name>Pontos de Registro</name>${placemarks.join('')}</Folder>
   </Document>
 </kml>`;
 
-  const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `visita_tecnica_${today}.kml`; a.click();
-  URL.revokeObjectURL(url);
-  showToast('KML exportado ✓');
+  try {
+    const zip = new JSZip();
+    zip.file('doc.kml', kml);
+    const filesFolder = zip.folder('files');
+    for (const p of photos) {
+      if (p._file) {
+        const buf = await p._file.arrayBuffer();
+        filesFolder.file(p.fname, buf);
+      }
+    }
+    const blob = await zip.generateAsync({ type:'blob', compression:'DEFLATE' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download=`visita_tecnica_${today}.kmz`; a.click();
+    URL.revokeObjectURL(url);
+    showToast('KMZ exportado ✓');
+  } catch(e) { showToast('Erro KMZ: ' + e.message); console.error(e); }
 }
 
-function escXml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+function escXml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ─── TOAST ─────────────────────────────────────────────────────────
 function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
+  const t = document.getElementById('toast'); t.textContent = msg;
+  t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2800);
 }
+
+// ─── SERVICE WORKER ────────────────────────────────────────────────
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(()=>{}); }
 
 // ─── INIT ──────────────────────────────────────────────────────────
 startGPS();

@@ -1,0 +1,17 @@
+{
+  "name": "GeoFoto – Visita Técnica",
+  "short_name": "GeoFoto",
+  "description": "Registro técnico de campo com GPS para visitas VALE S.A.",
+  "start_url": "visita-tecnica-geo.html",
+  "display": "standalone",
+  "background_color": "#1a2332",
+  "theme_color": "#1a2332",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='%231a2332'/><text y='130' x='30' font-size='120'>⛏</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ]
+}
