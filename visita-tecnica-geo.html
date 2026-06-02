@@ -439,12 +439,15 @@
     border-radius: 8px;
     max-width: 420px;
     width: 100%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
   }
-  .modal-box img { width: 100%; display: block; }
-  .modal-info { padding: 12px 14px; font-family: var(--mono); font-size: 0.72rem; line-height: 1.7; color: var(--dust); }
+  .modal-box img { width: 100%; display: block; flex-shrink: 0; max-height: 40vh; object-fit: cover; }
+  .modal-info { padding: 10px 14px; font-family: var(--mono); font-size: 0.72rem; line-height: 1.7; color: var(--dust); overflow-y: auto; flex: 1; }
   .modal-info strong { color: var(--ore-light); }
-  .modal-actions { display: flex; gap: 8px; padding: 0 14px 14px; }
+  .modal-actions { display: flex; gap: 8px; padding: 10px 14px; flex-shrink: 0; border-top: 1px solid var(--steel-light); }
   .modal-actions .btn { font-size: 0.78rem; padding: 9px; }
 
 </style>
