@@ -1101,16 +1101,40 @@ function openExportModal(type) {
   });
   document.getElementById('export-modal').classList.add('open');
 }
-document.getElementById('export-cancel').addEventListener('click', () => document.getElementById('export-modal').classList.remove('open'));
-document.getElementById('export-confirm').addEventListener('click', () => {
+document.getElementById('export-cancel').addEventListener('click', () => {
+  document.getElementById('export-modal').classList.remove('open');
+  document.getElementById('export-confirm').textContent = 'Exportar';
+  exportType = null;
+});
+
+document.getElementById('export-confirm').addEventListener('click', async () => {
+  // Phase 2: generate KMZ after photos selected
+  if (exportType === 'kml_ready') {
+    document.getElementById('export-modal').classList.remove('open');
+    document.getElementById('export-confirm').textContent = 'Exportar';
+    await doExportKMZ(pendingKMZPhotos, pendingKMZVisitNames);
+    exportType = null;
+    return;
+  }
+
+  // Phase 1: select visits
   const checked = Array.from(document.querySelectorAll('#export-visit-list input:checked')).map(c => c.value);
   if (!checked.length) { showToast('Selecione ao menos uma visita'); return; }
   const selectedPhotos = checked.flatMap(id => visits[id] ? visits[id].photos : []);
   if (!selectedPhotos.length) { showToast('Nenhum registro nas visitas selecionadas'); return; }
-  document.getElementById('export-modal').classList.remove('open');
-  if (exportType==='csv') doExportCSV(selectedPhotos, checked.map(id => visits[id].name));
-  else if (exportType==='kml') openKMZImport(selectedPhotos, checked.map(id => visits[id].name));
-  else if (exportType==='photos') showToast('Fotos já foram baixadas automaticamente');
+  const visitNames = checked.map(id => visits[id].name);
+
+  if (exportType === 'csv') {
+    document.getElementById('export-modal').classList.remove('open');
+    doExportCSV(selectedPhotos, visitNames);
+    exportType = null;
+  } else if (exportType === 'photos') {
+    document.getElementById('export-modal').classList.remove('open');
+    showToast('Fotos já foram baixadas automaticamente');
+    exportType = null;
+  } else if (exportType === 'kml') {
+    openKMZImport(selectedPhotos, visitNames);
+  }
 });
 
 document.getElementById('btn-dl-all').addEventListener('click', () => { if (!Object.keys(visits).length) { showToast('Nenhuma visita criada'); return; } openExportModal('photos'); });
@@ -1153,6 +1177,7 @@ function openKMZImport(photos, visitNames) {
     <input type="file" id="kmz-import-input" accept="image/*" multiple style="display:none">
     <div id="kmz-match-status" style="font-family:var(--mono);font-size:0.68rem;color:var(--dust);margin-top:8px"></div>`;
   modal.classList.add('open');
+  exportType = 'kml_ready';
   document.getElementById('export-confirm').textContent = 'Gerar KMZ';
 
   document.getElementById('kmz-import-input').addEventListener('change', (e) => {
@@ -1169,13 +1194,7 @@ function openKMZImport(photos, visitNames) {
   });
 }
 
-// override confirm button for KMZ
-document.getElementById('export-confirm').addEventListener('click', async () => {
-  if (exportType !== 'kml') return;
-  document.getElementById('export-modal').classList.remove('open');
-  document.getElementById('export-confirm').textContent = 'Exportar';
-  await doExportKMZ(pendingKMZPhotos, pendingKMZVisitNames);
-});
+// KMZ confirm handled in main export-confirm listener above
 
 // ─── KMZ ───────────────────────────────────────────────────────────
 async function doExportKMZ(photos, visitNames) {
