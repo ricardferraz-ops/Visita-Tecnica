@@ -767,6 +767,27 @@
   </div>
 </div>
 
+<!-- KMZ Import Modal (separate, dedicated) -->
+<div class="export-modal" id="kmz-modal">
+  <div class="export-box">
+    <h3>📂 Importar Fotos para KMZ</h3>
+    <div id="kmz-modal-content">
+      <p style="font-family:var(--mono);font-size:0.72rem;color:var(--dust);margin-bottom:10px;line-height:1.7">
+        Selecione as fotos baixadas na visita.<br>
+        O app identifica pelo nome do arquivo.<br>
+        <span style="color:var(--ore-light)">Fotos não encontradas ficam sem imagem.</span>
+      </p>
+      <label class="file-label" for="kmz-file-input" style="margin:0 0 8px 0">📂 Selecionar fotos da visita</label>
+      <input type="file" id="kmz-file-input" accept="image/*" multiple style="display:none">
+      <div id="kmz-match-info" style="font-family:var(--mono);font-size:0.7rem;color:var(--dust);margin:6px 0 10px;min-height:18px"></div>
+    </div>
+    <div class="export-actions">
+      <button class="btn btn-primary" id="kmz-generate-btn">Gerar KMZ</button>
+      <button class="btn btn-secondary" id="kmz-cancel-btn">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Export Modal -->
 <div class="export-modal" id="export-modal">
   <div class="export-box">
@@ -1108,16 +1129,7 @@ document.getElementById('export-cancel').addEventListener('click', () => {
 });
 
 document.getElementById('export-confirm').addEventListener('click', async () => {
-  // Phase 2: generate KMZ after photos selected
-  if (exportType === 'kml_ready') {
-    document.getElementById('export-modal').classList.remove('open');
-    document.getElementById('export-confirm').textContent = 'Exportar';
-    await doExportKMZ(pendingKMZPhotos, pendingKMZVisitNames);
-    exportType = null;
-    return;
-  }
-
-  // Phase 1: select visits
+  // Select visits
   const checked = Array.from(document.querySelectorAll('#export-visit-list input:checked')).map(c => c.value);
   if (!checked.length) { showToast('Selecione ao menos uma visita'); return; }
   const selectedPhotos = checked.flatMap(id => visits[id] ? visits[id].photos : []);
@@ -1133,6 +1145,8 @@ document.getElementById('export-confirm').addEventListener('click', async () => 
     showToast('Fotos já foram baixadas automaticamente');
     exportType = null;
   } else if (exportType === 'kml') {
+    document.getElementById('export-modal').classList.remove('open');
+    exportType = null;
     openKMZImport(selectedPhotos, visitNames);
   }
 });
@@ -1158,43 +1172,39 @@ function doExportCSV(photos, visitNames) {
 let pendingKMZPhotos = null, pendingKMZVisitNames = null;
 
 function openKMZImport(photos, visitNames) {
-  pendingKMZPhotos = photos; pendingKMZVisitNames = visitNames;
-  const missing = photos.filter(p => !p.thumb);
-  if (photos.length === 0) { showToast('Nenhum ponto para exportar'); return; }
-
-  // Build import UI
-  const modal = document.getElementById('export-modal');
-  const title = document.getElementById('export-title');
-  const list = document.getElementById('export-visit-list');
-  title.textContent = `Importar Fotos para KMZ (${photos.length} pontos)`;
-  list.innerHTML = `
-    <p style="font-family:var(--mono);font-size:0.72rem;color:var(--dust);margin-bottom:8px;line-height:1.6">
-      Selecione as fotos baixadas do celular.<br>
-      O app identifica cada foto pelo nome do arquivo.<br>
-      <span style="color:var(--ore-light)">Fotos não encontradas ficam sem imagem no KMZ.</span>
-    </p>
-    <label class="file-label" for="kmz-import-input" style="margin:0">📂 Selecionar fotos (múltiplas)</label>
-    <input type="file" id="kmz-import-input" accept="image/*" multiple style="display:none">
-    <div id="kmz-match-status" style="font-family:var(--mono);font-size:0.68rem;color:var(--dust);margin-top:8px"></div>`;
-  modal.classList.add('open');
-  exportType = 'kml_ready';
-  document.getElementById('export-confirm').textContent = 'Gerar KMZ';
-
-  document.getElementById('kmz-import-input').addEventListener('change', (e) => {
-    const files = Array.from(e.target.files);
-    const matched = files.filter(f => photos.some(p => p.fname === f.name));
-    const status = document.getElementById('kmz-match-status');
-    status.innerHTML = `✓ ${matched.length} de ${photos.length} fotos identificadas pelo nome`;
-    status.style.color = matched.length === photos.length ? 'var(--green)' : 'var(--ore-light)';
-    // Store files on records
-    files.forEach(file => {
-      const p = photos.find(pt => pt.fname === file.name);
-      if (p) p._file = file;
-    });
-  });
+  if (!photos.length) { showToast('Nenhum ponto para exportar'); return; }
+  pendingKMZPhotos = photos;
+  pendingKMZVisitNames = visitNames;
+  // Reset file input and status
+  document.getElementById('kmz-file-input').value = '';
+  document.getElementById('kmz-match-info').textContent = `${photos.length} ponto(s) aguardando fotos...`;
+  document.getElementById('kmz-match-info').style.color = 'var(--dust)';
+  document.getElementById('kmz-modal').classList.add('open');
 }
 
-// KMZ confirm handled in main export-confirm listener above
+document.getElementById('kmz-file-input').addEventListener('change', (e) => {
+  const files = Array.from(e.target.files);
+  if (!pendingKMZPhotos) return;
+  files.forEach(file => {
+    const p = pendingKMZPhotos.find(pt => pt.fname === file.name);
+    if (p) p._file = file;
+  });
+  const matched = pendingKMZPhotos.filter(p => p._file).length;
+  const info = document.getElementById('kmz-match-info');
+  info.innerHTML = `✓ ${matched} de ${pendingKMZPhotos.length} fotos identificadas`;
+  info.style.color = matched === pendingKMZPhotos.length ? 'var(--green)' : 'var(--ore-light)';
+});
+
+document.getElementById('kmz-cancel-btn').addEventListener('click', () => {
+  document.getElementById('kmz-modal').classList.remove('open');
+  pendingKMZPhotos = null; pendingKMZVisitNames = null;
+});
+
+document.getElementById('kmz-generate-btn').addEventListener('click', async () => {
+  document.getElementById('kmz-modal').classList.remove('open');
+  await doExportKMZ(pendingKMZPhotos, pendingKMZVisitNames);
+  pendingKMZPhotos = null; pendingKMZVisitNames = null;
+});
 
 // ─── KMZ ───────────────────────────────────────────────────────────
 async function doExportKMZ(photos, visitNames) {
